@@ -194,6 +194,16 @@
             display: inline-block;
         }
 
+        .megahash-badge {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            display: inline-block;
+        }
+
         .bits-badge {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -266,6 +276,7 @@
                 <a href="/transaction" class="nav-btn">🔗 Transaction Viewer</a>
                 <a href="/latest-blocks" class="nav-btn">📋 Latest Blocks</a>
                 <a href="/mempool" class="nav-btn">💾 Mempool</a>
+                <a href="/details" class="nav-btn">💰 Pricing Details</a>
             </div>
         </div>
 
@@ -339,6 +350,7 @@
                 const size = block.size || 0;
                 const weight = block.weight || 0;
                 const difficulty = block.difficulty || 'N/A';
+                const megahash = block.megahash || 'N/A';
                 const bits = block.bits || 'N/A';
                 const nonce = block.nonce || 'N/A';
                 const merkleRoot = block.merkle_root || 'N/A';
@@ -375,6 +387,12 @@
                                 <div class="detail-label">Difficulty</div>
                                 <div class="detail-value">
                                     <span class="difficulty-badge">${difficulty}</span>
+                                </div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Megahash</div>
+                                <div class="detail-value">
+                                    <span class="megahash-badge">${megahash !== 'N/A' ? megahash + ' MH/s' : 'N/A'}</span>
                                 </div>
                             </div>
                             <div class="detail-item">

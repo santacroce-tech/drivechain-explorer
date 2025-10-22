@@ -6,6 +6,35 @@ import json
 import hashlib
 from datetime import datetime, timedelta
 import binascii
+import threading
+import time
+
+def calculate_megahash(difficulty):
+    """
+    Convert Bitcoin difficulty to megahash per second (MH/s)
+    
+    Formula: MH/s = Difficulty × 2^32 / (600 × 10^6)
+    Where:
+    - Difficulty is the Bitcoin difficulty value
+    - 2^32 is the base for difficulty calculation
+    - 600 seconds is the average block time
+    - 10^6 converts to megahash (million hashes per second)
+    """
+    try:
+        if difficulty is None or difficulty == 0:
+            return 0
+        
+        # Convert difficulty to float if it's a string
+        if isinstance(difficulty, str):
+            difficulty = float(difficulty)
+        
+        # Calculate megahash: Difficulty × 2^32 / (600 × 10^6)
+        megahash = (difficulty * (2**32)) / (600 * (10**6))
+        
+        # Round to 2 decimal places for display
+        return round(megahash, 2)
+    except (ValueError, TypeError):
+        return 0
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -22,6 +51,7 @@ REDIS_HOST = 'localhost'
 REDIS_PORT = 6379
 REDIS_DB = 0
 CACHE_TTL = 300  # 5 minutes cache TTL
+PRICE_CACHE_TTL = 60  # 1 minute cache TTL for Bitcoin price
 
 # Initialize Redis connection
 try:
@@ -34,6 +64,12 @@ except Exception as e:
     print("   Caching will be disabled")
     REDIS_AVAILABLE = False
     redis_client = None
+
+# Bitcoin Price Configuration
+BITCOIN_PRICE_API_URL = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
+BITCOIN_PRICE_CACHE_KEY = "bitcoin_price_usd"
+current_bitcoin_price = None
+price_update_thread = None
 
 def get_cache_key(api_type, identifier):
     """Generate a cache key for the given API type and identifier"""
@@ -79,6 +115,112 @@ def get_cache_stats():
         }
     except Exception as e:
         return {"status": "error", "reason": str(e)}
+
+def fetch_bitcoin_price():
+    """Fetch Bitcoin price from external API"""
+    try:
+        response = requests.get(BITCOIN_PRICE_API_URL, timeout=10)
+        response.raise_for_status()
+        
+        data = response.json()
+        price_usd = float(data['bitcoin']['usd'])
+        
+        # Store in Redis cache
+        if REDIS_AVAILABLE:
+            price_data = {
+                'price_usd': price_usd,
+                'timestamp': datetime.now().isoformat(),
+                'source': 'coingecko'
+            }
+            redis_client.setex(BITCOIN_PRICE_CACHE_KEY, PRICE_CACHE_TTL, json.dumps(price_data))
+            print(f"💰 Bitcoin price updated: ${price_usd:,.2f} USD")
+        
+        return price_usd
+        
+    except Exception as e:
+        print(f"❌ Error fetching Bitcoin price: {e}")
+        return None
+
+def get_bitcoin_price():
+    """Get Bitcoin price from cache or fetch if not available"""
+    global current_bitcoin_price
+    
+    # Try to get from Redis cache first
+    if REDIS_AVAILABLE:
+        try:
+            cached_price_data = redis_client.get(BITCOIN_PRICE_CACHE_KEY)
+            if cached_price_data:
+                price_data = json.loads(cached_price_data)
+                current_bitcoin_price = price_data['price_usd']
+                return current_bitcoin_price
+        except Exception as e:
+            print(f"Cache read error for Bitcoin price: {e}")
+    
+    # If not in cache, fetch from API
+    price = fetch_bitcoin_price()
+    if price:
+        current_bitcoin_price = price
+    return current_bitcoin_price
+
+def price_update_worker():
+    """Background worker to update Bitcoin price periodically"""
+    while True:
+        try:
+            fetch_bitcoin_price()
+            time.sleep(60)  # Update every minute
+        except Exception as e:
+            print(f"Price update worker error: {e}")
+            time.sleep(60)  # Wait before retrying
+
+def start_price_updater():
+    """Start the background price update thread"""
+    global price_update_thread
+    if price_update_thread is None or not price_update_thread.is_alive():
+        price_update_thread = threading.Thread(target=price_update_worker, daemon=True)
+        price_update_thread.start()
+        print("💰 Bitcoin price updater started")
+
+def calculate_transaction_usd_value(transaction_data):
+    """Calculate USD value for a transaction based on Bitcoin price at transaction time"""
+    try:
+        bitcoin_price = get_bitcoin_price()
+        if not bitcoin_price:
+            return None
+        
+        # Get transaction timestamp
+        status = transaction_data.get('status', {})
+        block_time = status.get('block_time')
+        
+        if not block_time:
+            return None
+        
+        # For now, we'll use current price as historical price data is complex
+        # In a production system, you'd want to fetch historical prices
+        
+        total_value_satoshis = 0
+        
+        # Calculate total value from outputs
+        vout = transaction_data.get('vout', [])
+        for output in vout:
+            total_value_satoshis += output.get('value', 0)
+        
+        # Convert satoshis to BTC (1 BTC = 100,000,000 satoshis)
+        total_value_btc = total_value_satoshis / 100000000
+        
+        # Calculate USD value
+        usd_value = total_value_btc * bitcoin_price
+        
+        return {
+            'total_satoshis': total_value_satoshis,
+            'total_btc': total_value_btc,
+            'usd_value': usd_value,
+            'bitcoin_price_usd': bitcoin_price,
+            'calculation_time': datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        print(f"Error calculating USD value: {e}")
+        return None
 
 def decode_coinbase_message(scriptsig_hex):
     """
@@ -587,6 +729,7 @@ HTML_TEMPLATE = """
                 <a href="/transaction" class="nav-btn">🔗 Transaction Viewer</a>
                 <a href="/latest-blocks" class="nav-btn">📋 Latest Blocks</a>
                 <a href="/mempool" class="nav-btn">💾 Mempool</a>
+                <a href="/details" class="nav-btn">💰 Pricing Details</a>
             </div>
         </div>
 
@@ -1153,6 +1296,11 @@ def get_block_info(block_hash):
             cached_data = get_from_cache(cache_key)
             if cached_data:
                 print(f"✅ Cache hit for block info: {block_hash}")
+                # Ensure megahash is calculated for cached data too
+                if 'difficulty' in cached_data and cached_data['difficulty'] is not None:
+                    cached_data['megahash'] = calculate_megahash(cached_data['difficulty'])
+                elif 'megahash' not in cached_data:
+                    cached_data['megahash'] = 0
                 return jsonify(cached_data), 200
 
         # Make request to external API for block info
@@ -1167,9 +1315,104 @@ def get_block_info(block_hash):
         # Get the JSON data
         data = response.json()
         
+        # Add megahash calculation if difficulty is present
+        if 'difficulty' in data and data['difficulty'] is not None:
+            data['megahash'] = calculate_megahash(data['difficulty'])
+        else:
+            data['megahash'] = 0
+        
         # Store in cache
         set_cache(cache_key, data)
         print(f"💾 Cached block info for: {block_hash}")
+        
+        # Return the JSON data
+        return jsonify(data), 200
+
+    except requests.exceptions.Timeout:
+        return jsonify({
+            'error': 'Request timeout',
+            'message': 'The external API took too long to respond'
+        }), 504
+
+    except requests.exceptions.ConnectionError:
+        return jsonify({
+            'error': 'Connection error',
+            'message': 'Could not connect to the external API. Please check if the API is accessible.'
+        }), 503
+
+    except requests.exceptions.HTTPError as e:
+        return jsonify({
+            'error': 'HTTP error',
+            'message': f'External API returned error: {e.response.status_code}',
+            'details': str(e)
+        }), e.response.status_code
+
+    except requests.exceptions.RequestException as e:
+        return jsonify({
+            'error': 'Request failed',
+            'message': 'An error occurred while fetching data',
+            'details': str(e)
+        }), 500
+
+    except Exception as e:
+        return jsonify({
+            'error': 'Internal server error',
+            'message': 'An unexpected error occurred',
+            'details': str(e)
+        }), 500
+
+@app.route('/api/block-height/<height>', methods=['GET'])
+def get_block_hash_from_height(height):
+    """
+    Proxy endpoint to fetch block hash from block height with caching
+    """
+    try:
+        # Validate block height (must be a positive integer)
+        try:
+            height_int = int(height)
+            if height_int < 0:
+                raise ValueError("Height must be positive")
+        except ValueError:
+            return jsonify({
+                'error': 'Invalid block height format',
+                'message': 'Please provide a valid block height (positive integer)'
+            }), 400
+
+        # Check for force refresh parameter
+        force_refresh = request.args.get('force_refresh', 'false').lower() == 'true'
+        
+        # Generate cache key for block height
+        cache_key = get_cache_key('block_height', height)
+        
+        # Try to get from cache first (unless force refresh is requested)
+        if not force_refresh:
+            cached_data = get_from_cache(cache_key)
+            if cached_data:
+                print(f"✅ Cache hit for block height: {height}")
+                return jsonify(cached_data), 200
+
+        # Make request to external API for block hash
+        url = f"http://157.180.8.224:3000/block-height/{height}"
+        
+        # Set a timeout to avoid hanging requests
+        response = requests.get(url, timeout=30)
+        
+        # Check if request was successful
+        response.raise_for_status()
+        
+        # Get the block hash (it's returned as plain text)
+        block_hash = response.text.strip()
+        
+        # Create response data
+        data = {
+            'height': height_int,
+            'hash': block_hash,
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        # Store in cache
+        set_cache(cache_key, data)
+        print(f"💾 Cached block hash for height: {height}")
         
         # Return the JSON data
         return jsonify(data), 200
@@ -1291,6 +1534,92 @@ def cache_stats():
     stats = get_cache_stats()
     return jsonify(stats), 200
 
+@app.route('/api/bitcoin/price', methods=['GET'])
+def get_bitcoin_price_api():
+    """Get current Bitcoin price in USD"""
+    try:
+        price = get_bitcoin_price()
+        if price:
+            return jsonify({
+                'price_usd': price,
+                'timestamp': datetime.now().isoformat(),
+                'source': 'coingecko'
+            }), 200
+        else:
+            return jsonify({
+                'error': 'Price not available',
+                'message': 'Could not fetch Bitcoin price'
+            }), 503
+    except Exception as e:
+        return jsonify({
+            'error': 'Internal server error',
+            'message': str(e)
+        }), 500
+
+@app.route('/api/transaction/<txid>/pricing', methods=['GET'])
+def get_transaction_pricing(txid):
+    """Get USD pricing information for a transaction"""
+    try:
+        # Validate transaction ID
+        if not txid or len(txid) < 10:
+            return jsonify({
+                'error': 'Invalid transaction ID format',
+                'message': 'Please provide a valid transaction ID'
+            }), 400
+
+        # Check for force refresh parameter
+        force_refresh = request.args.get('force_refresh', 'false').lower() == 'true'
+        
+        # Generate cache key for transaction pricing
+        cache_key = get_cache_key('transaction_pricing', txid)
+        
+        # Try to get from cache first (unless force refresh is requested)
+        if not force_refresh:
+            cached_data = get_from_cache(cache_key)
+            if cached_data:
+                print(f"✅ Cache hit for transaction pricing: {txid}")
+                return jsonify(cached_data), 200
+
+        # Fetch transaction data first
+        tx_url = f"{TX_API_BASE_URL}/{txid}"
+        response = requests.get(tx_url, timeout=30)
+        response.raise_for_status()
+        transaction_data = response.json()
+        
+        # Calculate USD value
+        pricing_info = calculate_transaction_usd_value(transaction_data)
+        
+        if not pricing_info:
+            return jsonify({
+                'error': 'Pricing calculation failed',
+                'message': 'Could not calculate USD value for this transaction'
+            }), 500
+        
+        # Add transaction details to pricing info
+        pricing_info['transaction_id'] = txid
+        pricing_info['transaction_data'] = {
+            'block_height': transaction_data.get('status', {}).get('block_height'),
+            'block_time': transaction_data.get('status', {}).get('block_time'),
+            'confirmed': transaction_data.get('status', {}).get('confirmed', False)
+        }
+        
+        # Store in cache
+        set_cache(cache_key, pricing_info, CACHE_TTL)
+        print(f"💾 Cached pricing data for transaction: {txid}")
+        
+        return jsonify(pricing_info), 200
+        
+    except requests.exceptions.RequestException as e:
+        return jsonify({
+            'error': 'Transaction fetch failed',
+            'message': f'Could not fetch transaction data: {str(e)}'
+        }), 503
+    except Exception as e:
+        return jsonify({
+            'error': 'Internal server error',
+            'message': str(e)
+        }), 500
+
 @app.route('/api/blocks/latest', methods=['GET'])
 def get_latest_blocks():
     """
@@ -1308,6 +1637,15 @@ def get_latest_blocks():
             cached_data = get_from_cache(cache_key)
             if cached_data:
                 print(f"✅ Cache hit for latest blocks")
+                # Ensure megahash is calculated for cached data too
+                if isinstance(cached_data, list):
+                    for block in cached_data:
+                        if 'difficulty' in block and block['difficulty'] is not None:
+                            block['megahash'] = calculate_megahash(block['difficulty'])
+                        elif 'megahash' not in block:
+                            block['megahash'] = 0
+                elif isinstance(cached_data, dict) and 'difficulty' in cached_data:
+                    cached_data['megahash'] = calculate_megahash(cached_data['difficulty'])
                 return jsonify(cached_data), 200
 
         # Make request to external API for latest blocks
@@ -1321,6 +1659,16 @@ def get_latest_blocks():
         
         # Get the JSON data
         data = response.json()
+        
+        # Add megahash calculation for each block if difficulty is present
+        if isinstance(data, list):
+            for block in data:
+                if 'difficulty' in block and block['difficulty'] is not None:
+                    block['megahash'] = calculate_megahash(block['difficulty'])
+                else:
+                    block['megahash'] = 0
+        elif isinstance(data, dict) and 'difficulty' in data:
+            data['megahash'] = calculate_megahash(data['difficulty'])
         
         # Store in cache
         set_cache(cache_key, data)
@@ -1539,6 +1887,12 @@ def mempool_viewer():
     with open('mempool-viewer.html', 'r') as f:
         return f.read()
 
+@app.route('/details')
+def details_viewer():
+    """Serve the details/pricing viewer HTML page"""
+    with open('details.html', 'r') as f:
+        return f.read()
+
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
@@ -1561,6 +1915,10 @@ if __name__ == '__main__':
     print(f"🌐 Server starting at: http://localhost:5000")
     print(f"🏥 Health check: http://localhost:5000/health")
     print("=" * 60)
+    
+    # Start Bitcoin price updater
+    start_price_updater()
+    
     print("\nPress CTRL+C to stop the server\n")
     
     app.run(debug=True, host='0.0.0.0', port=5000)
