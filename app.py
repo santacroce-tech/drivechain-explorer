@@ -15,6 +15,7 @@ ADDRESS_API_BASE_URL = "http://157.180.8.224:3000/address"
 BLOCK_API_BASE_URL = "http://157.180.8.224:3000/block"
 TX_API_BASE_URL = "http://157.180.8.224:3000/tx"
 BLOCKS_API_BASE_URL = "http://157.180.8.224:3000/blocks"
+MEMPOOL_API_BASE_URL = "http://157.180.8.224:3000/mempool"
 
 # Redis Configuration
 REDIS_HOST = 'localhost'
@@ -585,6 +586,7 @@ HTML_TEMPLATE = """
                 <a href="/block" class="nav-btn">🧱 Block Viewer</a>
                 <a href="/transaction" class="nav-btn">🔗 Transaction Viewer</a>
                 <a href="/latest-blocks" class="nav-btn">📋 Latest Blocks</a>
+                <a href="/mempool" class="nav-btn">💾 Mempool</a>
             </div>
         </div>
 
@@ -1389,6 +1391,154 @@ def clear_cache():
             'message': str(e)
         }), 500
 
+@app.route('/api/mempool', methods=['GET'])
+def get_mempool_status():
+    """
+    Proxy endpoint to fetch mempool status from the external API with caching
+    """
+    try:
+        # Check for force refresh parameter
+        force_refresh = request.args.get('force_refresh', 'false').lower() == 'true'
+        
+        # Generate cache key for mempool status
+        cache_key = get_cache_key('mempool', 'status')
+        
+        # Try to get from cache first (unless force refresh is requested)
+        if not force_refresh:
+            cached_data = get_from_cache(cache_key)
+            if cached_data:
+                print(f"✅ Cache hit for mempool status")
+                return jsonify(cached_data), 200
+
+        # Make request to external API for mempool status
+        url = MEMPOOL_API_BASE_URL
+        
+        # Set a timeout to avoid hanging requests
+        response = requests.get(url, timeout=30)
+        
+        # Check if request was successful
+        response.raise_for_status()
+        
+        # Get the JSON data
+        data = response.json()
+        
+        # Store in cache
+        set_cache(cache_key, data)
+        print(f"💾 Cached mempool status data")
+        
+        # Return the JSON data
+        return jsonify(data), 200
+
+    except requests.exceptions.Timeout:
+        return jsonify({
+            'error': 'Request timeout',
+            'message': 'The external API took too long to respond'
+        }), 504
+
+    except requests.exceptions.ConnectionError:
+        return jsonify({
+            'error': 'Connection error',
+            'message': 'Could not connect to the external API. Please check if the API is accessible.'
+        }), 503
+
+    except requests.exceptions.HTTPError as e:
+        return jsonify({
+            'error': 'HTTP error',
+            'message': f'External API returned error: {e.response.status_code}',
+            'details': str(e)
+        }), e.response.status_code
+
+    except requests.exceptions.RequestException as e:
+        return jsonify({
+            'error': 'Request failed',
+            'message': 'An error occurred while fetching data',
+            'details': str(e)
+        }), 500
+
+    except Exception as e:
+        return jsonify({
+            'error': 'Internal server error',
+            'message': 'An unexpected error occurred',
+            'details': str(e)
+        }), 500
+
+@app.route('/api/mempool/recent', methods=['GET'])
+def get_mempool_recent():
+    """
+    Proxy endpoint to fetch recent mempool transactions from the external API with caching
+    """
+    try:
+        # Check for force refresh parameter
+        force_refresh = request.args.get('force_refresh', 'false').lower() == 'true'
+        
+        # Generate cache key for recent mempool transactions
+        cache_key = get_cache_key('mempool', 'recent')
+        
+        # Try to get from cache first (unless force refresh is requested)
+        if not force_refresh:
+            cached_data = get_from_cache(cache_key)
+            if cached_data:
+                print(f"✅ Cache hit for recent mempool transactions")
+                return jsonify(cached_data), 200
+
+        # Make request to external API for recent mempool transactions
+        url = f"{MEMPOOL_API_BASE_URL}/recent"
+        
+        # Set a timeout to avoid hanging requests
+        response = requests.get(url, timeout=30)
+        
+        # Check if request was successful
+        response.raise_for_status()
+        
+        # Get the JSON data
+        data = response.json()
+        
+        # Store in cache
+        set_cache(cache_key, data)
+        print(f"💾 Cached recent mempool transactions data")
+        
+        # Return the JSON data
+        return jsonify(data), 200
+
+    except requests.exceptions.Timeout:
+        return jsonify({
+            'error': 'Request timeout',
+            'message': 'The external API took too long to respond'
+        }), 504
+
+    except requests.exceptions.ConnectionError:
+        return jsonify({
+            'error': 'Connection error',
+            'message': 'Could not connect to the external API. Please check if the API is accessible.'
+        }), 503
+
+    except requests.exceptions.HTTPError as e:
+        return jsonify({
+            'error': 'HTTP error',
+            'message': f'External API returned error: {e.response.status_code}',
+            'details': str(e)
+        }), e.response.status_code
+
+    except requests.exceptions.RequestException as e:
+        return jsonify({
+            'error': 'Request failed',
+            'message': 'An error occurred while fetching data',
+            'details': str(e)
+        }), 500
+
+    except Exception as e:
+        return jsonify({
+            'error': 'Internal server error',
+            'message': 'An unexpected error occurred',
+            'details': str(e)
+        }), 500
+
+@app.route('/mempool')
+def mempool_viewer():
+    """Serve the mempool viewer HTML page"""
+    with open('mempool-viewer.html', 'r') as f:
+        return f.read()
+
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
@@ -1398,6 +1548,7 @@ def health_check():
         'timestamp': datetime.now().isoformat(),
         'address_api_url': ADDRESS_API_BASE_URL,
         'block_api_url': BLOCK_API_BASE_URL,
+        'mempool_api_url': MEMPOOL_API_BASE_URL,
         'cache': cache_stats
     }), 200
 
