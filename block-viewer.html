@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Block Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 0.95em;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 15px;
+        }
+
+        .nav-btn {
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: 600;
+            color: white;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .nav-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .search-section {
+            padding: 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .search-options {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-top: 15px;
+            justify-content: center;
+        }
+
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .checkbox-wrapper input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .checkbox-wrapper label {
+            font-size: 14px;
+            color: #666;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .input-wrapper {
+            flex: 1;
+            position: relative;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 14px 20px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            font-family: 'Courier New', monospace;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            padding: 14px 30px;
+            font-size: 16px;
+            font-weight: 600;
+            color: white;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #fee;
+            border-left: 4px solid #f44;
+            padding: 20px;
+            border-radius: 8px;
+            color: #c33;
+            margin: 20px 0;
+        }
+
+        .error-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 1.1em;
+        }
+
+        .block-info {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .block-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .block-hash {
+            font-family: 'Courier New', monospace;
+            font-size: 1.1em;
+            color: #667eea;
+            font-weight: 600;
+            word-break: break-all;
+            flex: 1;
+            margin-right: 15px;
+        }
+
+        .block-time {
+            color: #666;
+            font-size: 0.9em;
+            white-space: nowrap;
+        }
+
+        .block-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .detail-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .detail-label {
+            font-size: 0.8em;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .detail-value {
+            font-size: 1em;
+            color: #333;
+            font-family: 'Courier New', monospace;
+            word-break: break-all;
+        }
+
+        .clickable-link {
+            color: #667eea;
+            cursor: pointer;
+            text-decoration: underline;
+            transition: color 0.3s ease;
+        }
+
+        .clickable-link:hover {
+            color: #5a6fd8;
+        }
+
+        .coinbase-message {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #28a745;
+            font-style: italic;
+            color: #333;
+            word-break: break-word;
+            white-space: pre-wrap;
+        }
+
+        .difficulty-badge {
+            background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .bits-badge {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .transactions-section {
+            margin-top: 25px;
+        }
+
+        .section-header {
+            margin: 20px 0 15px 0;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .section-header h3 {
+            color: #333;
+            font-size: 1.2em;
+            margin: 0;
+        }
+
+        .transaction-card {
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .transaction-card:hover {
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+            transform: translateY(-1px);
+        }
+
+        .tx-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .tx-hash {
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            color: #667eea;
+            font-weight: 600;
+            word-break: break-all;
+            flex: 1;
+            margin-right: 15px;
+        }
+
+        .tx-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+        }
+
+        .tx-details .detail-item {
+            margin-bottom: 0;
+        }
+
+        .tx-details .detail-label {
+            font-size: 0.75em;
+            color: #666;
+        }
+
+        .tx-details .detail-value {
+            font-size: 0.85em;
+            color: #333;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 60px 20px;
+            color: #888;
+        }
+
+        .no-results-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        .json-viewer {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            max-height: 300px;
+            overflow: auto;
+        }
+
+        .json-content {
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .toggle-json {
+            background: #6c757d;
+            padding: 8px 16px;
+            font-size: 0.85em;
+            margin-top: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .input-group {
+                flex-direction: column;
+            }
+
+            .block-header {
+                flex-direction: column;
+            }
+
+            .block-hash {
+                margin-bottom: 10px;
+                margin-right: 0;
+            }
+
+            .block-details {
+                grid-template-columns: 1fr;
+            }
+
+            .tx-details {
+                grid-template-columns: 1fr;
+            }
+
+            .nav-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧱 Block Viewer</h1>
+            <p>Enter a block hash to view block details and transactions</p>
+            <div class="nav-buttons">
+                <a href="/" class="nav-btn">🔍 Address Viewer</a>
+                <a href="/block" class="nav-btn">🧱 Block Viewer</a>
+                <a href="/transaction" class="nav-btn">🔗 Transaction Viewer</a>
+            </div>
+        </div>
+
+        <div class="search-section">
+            <div class="input-group">
+                <div class="input-wrapper">
+                    <input 
+                        type="text" 
+                        id="blockHashInput" 
+                        placeholder="Enter block hash (e.g., 000000007952236b060bb8f215cd9090b4384647638a80f20f6879e31ac5da20)" 
+                        autocomplete="off"
+                    />
+                </div>
+                <button id="searchBtn" onclick="fetchBlock()">Search Block</button>
+            </div>
+            <div class="search-options">
+                <div class="checkbox-wrapper">
+                    <input type="checkbox" id="forceRefresh" />
+                    <label for="forceRefresh">🔄 Force refresh (bypass cache)</label>
+                </div>
+                <div class="checkbox-wrapper">
+                    <span id="cacheStatus" style="font-size: 12px; color: #888;">Cache: Loading...</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="content">
+            <div id="latest-blocks-section" style="margin-bottom: 30px;">
+                <div class="section-header">
+                    <h3>📋 Latest Blocks</h3>
+                    <button onclick="fetchLatestBlocks()" class="toggle-json">🔄 Refresh</button>
+                </div>
+                <div id="latest-blocks"></div>
+            </div>
+            <div id="results"></div>
+        </div>
+    </div>
+
+    <script>
+        // Use relative URL to call our backend
+        const API_BASE_URL = '/api/block';
+        const LATEST_BLOCKS_API_URL = '/api/blocks/latest';
+        
+        // Allow Enter key to trigger search
+        document.getElementById('blockHashInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                fetchBlock();
+            }
+        });
+
+        async function fetchBlock() {
+            const blockHash = document.getElementById('blockHashInput').value.trim();
+            const resultsDiv = document.getElementById('results');
+            const searchBtn = document.getElementById('searchBtn');
+            const forceRefresh = document.getElementById('forceRefresh').checked;
+
+            // Validation
+            if (!blockHash) {
+                resultsDiv.innerHTML = `
+                    <div class="error">
+                        <div class="error-title">⚠️ Validation Error</div>
+                        <div>Please enter a valid block hash</div>
+                    </div>
+                `;
+                return;
+            }
+
+            // Show loading state
+            searchBtn.disabled = true;
+            searchBtn.textContent = 'Searching...';
+            resultsDiv.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <div>Fetching block details for: <strong>${blockHash}</strong></div>
+                    ${forceRefresh ? '<div style="margin-top: 10px; color: #ff6b35;">🔄 Bypassing cache...</div>' : ''}
+                </div>
+            `;
+
+            try {
+                // Fetch both block info and transactions in parallel
+                const [txResponse, infoResponse] = await Promise.all([
+                    fetch(`${API_BASE_URL}/${blockHash}/txs${forceRefresh ? '?force_refresh=true' : ''}`),
+                    fetch(`${API_BASE_URL}/${blockHash}/info${forceRefresh ? '?force_refresh=true' : ''}`)
+                ]);
+
+                if (!txResponse.ok) {
+                    const errorData = await txResponse.json();
+                    throw new Error(errorData.error || `HTTP Error: ${txResponse.status}`);
+                }
+
+                if (!infoResponse.ok) {
+                    const errorData = await infoResponse.json();
+                    throw new Error(errorData.error || `HTTP Error: ${infoResponse.status}`);
+                }
+
+                const [txData, infoData] = await Promise.all([
+                    txResponse.json(),
+                    infoResponse.json()
+                ]);
+                
+                displayBlockResults(txData, blockHash, infoData);
+
+            } catch (error) {
+                resultsDiv.innerHTML = `
+                    <div class="error">
+                        <div class="error-title">❌ Error Fetching Data</div>
+                        <div><strong>Message:</strong> ${error.message}</div>
+                        <div style="margin-top: 10px; font-size: 0.9em;">
+                            Please check:
+                            <ul style="margin-left: 20px; margin-top: 5px;">
+                                <li>The block hash is correct</li>
+                                <li>The backend server is running</li>
+                                <li>Your internet connection is working</li>
+                            </ul>
+                        </div>
+                    </div>
+                `;
+            } finally {
+                searchBtn.disabled = false;
+                searchBtn.textContent = 'Search Block';
+            }
+        }
+
+        function displayBlockResults(data, blockHash, blockInfo = null) {
+            const resultsDiv = document.getElementById('results');
+
+            // Check if data is an array (transactions)
+            const transactions = Array.isArray(data) ? data : [];
+
+            if (!transactions || transactions.length === 0) {
+                resultsDiv.innerHTML = `
+                    <div class="no-results">
+                        <div class="no-results-icon">📭</div>
+                        <h2>No Block Data Found</h2>
+                        <p>No transactions were found for block: <strong>${blockHash}</strong></p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Extract block information from the first transaction
+            const firstTx = transactions[0];
+            const blockHeight = firstTx.status?.block_height || blockInfo?.height || 'N/A';
+            const blockTime = firstTx.status?.block_time || blockInfo?.timestamp || 'N/A';
+            const confirmed = firstTx.status?.confirmed || false;
+
+            // Extract additional block info
+            const difficulty = blockInfo?.difficulty || 'N/A';
+            const bits = blockInfo?.bits || 'N/A';
+            const version = blockInfo?.version || 'N/A';
+            const merkleRoot = blockInfo?.merkle_root || 'N/A';
+            const previousBlockHash = blockInfo?.previousblockhash || 'N/A';
+            const nonce = blockInfo?.nonce || 'N/A';
+            const size = blockInfo?.size || 'N/A';
+            const weight = blockInfo?.weight || 'N/A';
+
+            // Decode coinbase message from first transaction
+            let coinbaseMessage = 'N/A';
+            if (firstTx.vin && firstTx.vin.length > 0 && firstTx.vin[0].is_coinbase) {
+                const coinbaseInput = firstTx.vin[0];
+                if (coinbaseInput.scriptsig) {
+                    coinbaseMessage = decodeCoinbaseMessage(coinbaseInput.scriptsig);
+                }
+            }
+
+            let html = `
+                <div class="block-info">
+                    <div class="block-header">
+                        <div class="block-hash">
+                            <strong>Block Hash:</strong> ${blockHash}
+                        </div>
+                        <div class="block-time">
+                            ${formatTimestamp(blockTime)}
+                        </div>
+                    </div>
+                    <div class="block-details">
+                        <div class="detail-item">
+                            <div class="detail-label">Block Height</div>
+                            <div class="detail-value">${blockHeight}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Block Time</div>
+                            <div class="detail-value">${formatTimestamp(blockTime)}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Transaction Count</div>
+                            <div class="detail-value">${transactions.length}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Status</div>
+                            <div class="detail-value">
+                                <span class="status-badge status-${confirmed ? 'confirmed' : 'pending'}">
+                                    ${confirmed ? 'CONFIRMED' : 'PENDING'}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Difficulty</div>
+                            <div class="detail-value">
+                                <span class="difficulty-badge">${difficulty}</span>
+                            </div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Bits</div>
+                            <div class="detail-value">
+                                <span class="bits-badge">${bits}</span>
+                            </div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Version</div>
+                            <div class="detail-value">${version}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Size</div>
+                            <div class="detail-value">${size} bytes</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Weight</div>
+                            <div class="detail-value">${weight}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Nonce</div>
+                            <div class="detail-value">${nonce}</div>
+                        </div>
+                    </div>
+                    <div class="block-details" style="margin-top: 20px;">
+                        <div class="detail-item" style="grid-column: 1 / -1;">
+                            <div class="detail-label">Merkle Root</div>
+                            <div class="detail-value">${merkleRoot}</div>
+                        </div>
+                        <div class="detail-item" style="grid-column: 1 / -1;">
+                            <div class="detail-label">Previous Block Hash</div>
+                            <div class="detail-value clickable-link" onclick="viewBlock('${previousBlockHash}')">${previousBlockHash}</div>
+                        </div>
+                        <div class="detail-item" style="grid-column: 1 / -1;">
+                            <div class="detail-label">Coinbase Message</div>
+                            <div class="coinbase-message">${coinbaseMessage}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Add transactions section
+            html += `
+                <div class="transactions-section">
+                    <div class="section-header">
+                        <h3>📋 Transactions in this Block (${transactions.length})</h3>
+                    </div>
+            `;
+
+            transactions.forEach((tx, index) => {
+                const txid = tx.txid || 'N/A';
+                const fee = tx.fee || 0;
+                const size = tx.size || 0;
+                const weight = tx.weight || 0;
+                const version = tx.version || 'N/A';
+                const locktime = tx.locktime || 0;
+                const sigops = tx.sigops || 0;
+                
+                // Inputs and outputs
+                const vin = tx.vin || [];
+                const vout = tx.vout || [];
+
+                html += `
+                    <div class="transaction-card">
+                        <div class="tx-header">
+                            <div class="tx-hash">
+                                <strong>TXID:</strong> <span class="clickable-link" onclick="viewTransaction('${txid}')">${txid}</span>
+                            </div>
+                        </div>
+                        <div class="tx-details">
+                            <div class="detail-item">
+                                <div class="detail-label">Fee</div>
+                                <div class="detail-value">${fee} satoshis</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Size</div>
+                                <div class="detail-value">${size} bytes</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Weight</div>
+                                <div class="detail-value">${weight}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Version</div>
+                                <div class="detail-value">${version}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Locktime</div>
+                                <div class="detail-value">${locktime}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">SigOps</div>
+                                <div class="detail-value">${sigops}</div>
+                            </div>
+                        </div>
+                        
+                        ${vin.length > 0 ? `
+                        <div style="margin-top: 15px;">
+                            <strong>📥 Inputs (${vin.length}):</strong>
+                            ${vin.map((input, i) => `
+                                <div style="margin: 5px 0; font-size: 0.85em; color: #666;">
+                                    ${i + 1}. ${input.is_coinbase ? 'COINBASE' : (input.txid ? input.txid.substring(0, 20) + '...' : 'N/A')}
+                                </div>
+                            `).join('')}
+                        </div>
+                        ` : ''}
+                        
+                        ${vout.length > 0 ? `
+                        <div style="margin-top: 10px;">
+                            <strong>📤 Outputs (${vout.length}):</strong>
+                            ${vout.map((output, i) => `
+                                <div style="margin: 5px 0; font-size: 0.85em; color: #666;">
+                                    ${i + 1}. ${output.value} satoshis → ${output.scriptpubkey_address || 'N/A'}
+                                </div>
+                            `).join('')}
+                        </div>
+                        ` : ''}
+                        
+                        <button class="toggle-json" onclick="toggleJson(${index})">
+                            View Raw JSON
+                        </button>
+                        <div id="json-${index}" class="json-viewer" style="display: none;">
+                            <div class="json-content">${JSON.stringify(tx, null, 2)}</div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `</div>`;
+            resultsDiv.innerHTML = html;
+        }
+
+        function toggleJson(index) {
+            const jsonDiv = document.getElementById(`json-${index}`);
+            const isVisible = jsonDiv.style.display !== 'none';
+            jsonDiv.style.display = isVisible ? 'none' : 'block';
+            event.target.textContent = isVisible ? 'View Raw JSON' : 'Hide Raw JSON';
+        }
+
+        function viewTransaction(txid) {
+            // Navigate to address viewer with the TXID
+            window.location.href = `/?txid=${txid}`;
+        }
+
+        function viewBlock(blockHash) {
+            // Navigate to block viewer with the block hash
+            window.location.href = `/block?hash=${blockHash}`;
+        }
+
+        function formatTimestamp(timestamp) {
+            if (!timestamp || timestamp === 'N/A') return 'N/A';
+            
+            // If timestamp is a number (Unix timestamp)
+            if (typeof timestamp === 'number') {
+                return new Date(timestamp * 1000).toLocaleString();
+            }
+            
+            // If timestamp is already a date string
+            const date = new Date(timestamp);
+            if (!isNaN(date.getTime())) {
+                return date.toLocaleString();
+            }
+            
+            return timestamp;
+        }
+
+        function decodeCoinbaseMessage(scriptsigHex) {
+            try {
+                if (!scriptsigHex) return 'N/A';
+                
+                // Remove any whitespace
+                scriptsigHex = scriptsigHex.trim();
+                
+                // Convert hex to bytes
+                const bytes = [];
+                for (let i = 0; i < scriptsigHex.length; i += 2) {
+                    bytes.push(parseInt(scriptsigHex.substr(i, 2), 16));
+                }
+                
+                if (bytes.length < 2) return 'Invalid coinbase data';
+                
+                // Skip the first byte (length indicator) and try to decode as text
+                const messageBytes = bytes.slice(1);
+                
+                // Try to decode as UTF-8
+                try {
+                    const decoder = new TextDecoder('utf-8', { fatal: false });
+                    const decodedText = decoder.decode(new Uint8Array(messageBytes));
+                    
+                    // Clean up the text - remove non-printable characters except spaces
+                    const cleanedText = decodedText.replace(/[^\x20-\x7E]/g, '');
+                    return cleanedText.trim() || 'Empty message';
+                } catch (e) {
+                    // If UTF-8 fails, try ASCII
+                    try {
+                        let asciiText = '';
+                        for (let i = 0; i < messageBytes.length; i++) {
+                            const char = messageBytes[i];
+                            if (char >= 32 && char <= 126) { // Printable ASCII range
+                                asciiText += String.fromCharCode(char);
+                            }
+                        }
+                        return asciiText.trim() || 'Empty message';
+                    } catch (e2) {
+                        return 'Binary data (not text)';
+                    }
+                }
+            } catch (error) {
+                return `Decode error: ${error.message}`;
+            }
+        }
+
+        // Load cache status
+        async function loadCacheStatus() {
+            try {
+                const response = await fetch('/api/cache/stats');
+                const stats = await response.json();
+                const statusElement = document.getElementById('cacheStatus');
+                
+                if (stats.status === 'enabled') {
+                    statusElement.innerHTML = `Cache: ✅ Enabled (${stats.keys} keys)`;
+                    statusElement.style.color = '#28a745';
+                } else if (stats.status === 'disabled') {
+                    statusElement.innerHTML = `Cache: ❌ Disabled (${stats.reason})`;
+                    statusElement.style.color = '#dc3545';
+                } else {
+                    statusElement.innerHTML = `Cache: ⚠️ Error (${stats.reason})`;
+                    statusElement.style.color = '#ffc107';
+                }
+            } catch (error) {
+                document.getElementById('cacheStatus').innerHTML = 'Cache: ❌ Error';
+                document.getElementById('cacheStatus').style.color = '#dc3545';
+            }
+        }
+
+        // Function to fetch and display latest blocks
+        async function fetchLatestBlocks() {
+            const latestBlocksDiv = document.getElementById('latest-blocks');
+            
+            try {
+                const response = await fetch(LATEST_BLOCKS_API_URL);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP Error: ${response.status}`);
+                }
+                
+                const blocks = await response.json();
+                displayLatestBlocks(blocks);
+                
+            } catch (error) {
+                latestBlocksDiv.innerHTML = `
+                    <div class="error">
+                        <div class="error-title">❌ Error Loading Latest Blocks</div>
+                        <div><strong>Message:</strong> ${error.message}</div>
+                    </div>
+                `;
+            }
+        }
+
+        // Function to display latest blocks
+        function displayLatestBlocks(blocks) {
+            const latestBlocksDiv = document.getElementById('latest-blocks');
+            
+            if (!blocks || blocks.length === 0) {
+                latestBlocksDiv.innerHTML = `
+                    <div class="no-results">
+                        <div class="no-results-icon">📭</div>
+                        <h2>No Blocks Found</h2>
+                        <p>No latest blocks were found</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            
+            blocks.forEach((block, index) => {
+                const blockId = block.id || 'N/A';
+                const height = block.height || 'N/A';
+                const timestamp = block.timestamp || 'N/A';
+                const txCount = block.tx_count || 0;
+                const size = block.size || 0;
+                const weight = block.weight || 0;
+                const difficulty = block.difficulty || 'N/A';
+                const bits = block.bits || 'N/A';
+                const nonce = block.nonce || 'N/A';
+                const merkleRoot = block.merkle_root || 'N/A';
+                const previousBlockHash = block.previousblockhash || 'N/A';
+
+                html += `
+                    <div class="transaction-card" style="margin-bottom: 15px;">
+                        <div class="tx-header">
+                            <div class="tx-hash">
+                                <strong>Block ${height}:</strong> <span class="clickable-link" onclick="viewBlock('${blockId}')">${blockId}</span>
+                            </div>
+                            <div class="tx-time">
+                                ${formatTimestamp(timestamp)}
+                            </div>
+                        </div>
+                        <div class="tx-details">
+                            <div class="detail-item">
+                                <div class="detail-label">Height</div>
+                                <div class="detail-value">${height}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Transactions</div>
+                                <div class="detail-value">${txCount}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Size</div>
+                                <div class="detail-value">${size} bytes</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Weight</div>
+                                <div class="detail-value">${weight}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Difficulty</div>
+                                <div class="detail-value">
+                                    <span class="difficulty-badge">${difficulty}</span>
+                                </div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Bits</div>
+                                <div class="detail-value">
+                                    <span class="bits-badge">${bits}</span>
+                                </div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Nonce</div>
+                                <div class="detail-value">${nonce}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Previous Block</div>
+                                <div class="detail-value clickable-link" onclick="viewBlock('${previousBlockHash}')">${previousBlockHash}</div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 10px;">
+                            <div class="detail-label">Merkle Root</div>
+                            <div class="detail-value" style="font-size: 0.8em;">${merkleRoot}</div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            latestBlocksDiv.innerHTML = html;
+        }
+
+        // Focus on input on page load and handle URL parameters
+        window.addEventListener('load', function() {
+            loadCacheStatus();
+            fetchLatestBlocks(); // Load latest blocks on page load
+            
+            const urlParams = new URLSearchParams(window.location.search);
+            const blockHash = urlParams.get('hash');
+            if (blockHash) {
+                document.getElementById('blockHashInput').value = blockHash;
+                fetchBlock();
+            } else {
+                document.getElementById('blockHashInput').focus();
+            }
+        });
+    </script>
+</body>
+</html>

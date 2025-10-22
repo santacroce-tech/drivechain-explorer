@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transaction Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 0.95em;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 15px;
+        }
+
+        .nav-btn {
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: 600;
+            color: white;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .nav-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .search-section {
+            padding: 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .search-options {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-top: 15px;
+            justify-content: center;
+        }
+
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .checkbox-wrapper input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .checkbox-wrapper label {
+            font-size: 14px;
+            color: #666;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .input-wrapper {
+            flex: 1;
+            position: relative;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 14px 20px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            font-family: 'Courier New', monospace;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            padding: 14px 30px;
+            font-size: 16px;
+            font-weight: 600;
+            color: white;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #fee;
+            border-left: 4px solid #f44;
+            padding: 20px;
+            border-radius: 8px;
+            color: #c33;
+            margin: 20px 0;
+        }
+
+        .error-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 1.1em;
+        }
+
+        .transaction-card {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .transaction-card:hover {
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .tx-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .tx-hash {
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            color: #667eea;
+            font-weight: 600;
+            word-break: break-all;
+            flex: 1;
+            margin-right: 15px;
+        }
+
+        .tx-time {
+            color: #666;
+            font-size: 0.85em;
+            white-space: nowrap;
+        }
+
+        .tx-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .detail-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .detail-label {
+            font-size: 0.8em;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .detail-value {
+            font-size: 0.95em;
+            color: #333;
+            font-family: 'Courier New', monospace;
+            word-break: break-all;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .status-confirmed {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .section-header {
+            margin: 20px 0 15px 0;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .section-header h3 {
+            color: #333;
+            font-size: 1.1em;
+            margin: 0;
+        }
+
+        .inputs-outputs {
+            margin: 15px 0;
+        }
+
+        .io-item {
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+
+        .io-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .io-header strong {
+            color: #333;
+            font-size: 0.95em;
+        }
+
+        .coinbase-badge {
+            background: #28a745;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            font-weight: 600;
+        }
+
+        .value-badge {
+            background: #007bff;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            font-weight: 600;
+        }
+
+        .io-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+
+        .io-details .detail-item {
+            margin-bottom: 0;
+        }
+
+        .io-details .detail-label {
+            font-size: 0.75em;
+            color: #666;
+        }
+
+        .io-details .detail-value {
+            font-size: 0.85em;
+            color: #333;
+        }
+
+        .clickable-link {
+            color: #667eea;
+            cursor: pointer;
+            text-decoration: underline;
+            transition: color 0.3s ease;
+        }
+
+        .clickable-link:hover {
+            color: #5a6fd8;
+        }
+
+        .json-viewer {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            max-height: 300px;
+            overflow: auto;
+        }
+
+        .json-content {
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .toggle-json {
+            background: #6c757d;
+            padding: 8px 16px;
+            font-size: 0.85em;
+            margin-top: 10px;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 60px 20px;
+            color: #888;
+        }
+
+        .no-results-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        @media (max-width: 768px) {
+            .input-group {
+                flex-direction: column;
+            }
+
+            .tx-header {
+                flex-direction: column;
+            }
+
+            .tx-hash {
+                margin-bottom: 10px;
+                margin-right: 0;
+            }
+
+            .tx-details {
+                grid-template-columns: 1fr;
+            }
+
+            .io-details {
+                grid-template-columns: 1fr;
+            }
+
+            .io-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔗 Transaction Viewer</h1>
+            <p>Enter a transaction ID to view detailed transaction information</p>
+            <div class="nav-buttons">
+                <a href="/" class="nav-btn">🔍 Address Viewer</a>
+                <a href="/block" class="nav-btn">🧱 Block Viewer</a>
+                <a href="/transaction" class="nav-btn">🔗 Transaction Viewer</a>
+            </div>
+        </div>
+
+        <div class="search-section">
+            <div class="input-group">
+                <div class="input-wrapper">
+                    <input 
+                        type="text" 
+                        id="txidInput" 
+                        placeholder="Enter transaction ID (e.g., be58e8a029e04cda8fe6be9671c4d9b1edf09a3618c40d466cbd9da7c20a1023)" 
+                        autocomplete="off"
+                    />
+                </div>
+                <button id="searchBtn" onclick="fetchTransaction()">Search</button>
+            </div>
+            <div class="search-options">
+                <div class="checkbox-wrapper">
+                    <input type="checkbox" id="forceRefresh" />
+                    <label for="forceRefresh">🔄 Force refresh (bypass cache)</label>
+                </div>
+                <div class="checkbox-wrapper">
+                    <span id="cacheStatus" style="font-size: 12px; color: #888;">Cache: Loading...</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="content">
+            <div id="results"></div>
+        </div>
+    </div>
+
+    <script>
+        // Use relative URL to call our backend
+        const API_BASE_URL = '/api/tx';
+        
+        // Allow Enter key to trigger search
+        document.getElementById('txidInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                fetchTransaction();
+            }
+        });
+
+        async function fetchTransaction() {
+            const txid = document.getElementById('txidInput').value.trim();
+            const resultsDiv = document.getElementById('results');
+            const searchBtn = document.getElementById('searchBtn');
+            const forceRefresh = document.getElementById('forceRefresh').checked;
+
+            // Validation
+            if (!txid) {
+                resultsDiv.innerHTML = `
+                    <div class="error">
+                        <div class="error-title">⚠️ Validation Error</div>
+                        <div>Please enter a valid transaction ID</div>
+                    </div>
+                `;
+                return;
+            }
+
+            // Show loading state
+            searchBtn.disabled = true;
+            searchBtn.textContent = 'Searching...';
+            resultsDiv.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <div>Fetching transaction details for: <strong>${txid}</strong></div>
+                    ${forceRefresh ? '<div style="margin-top: 10px; color: #ff6b35;">🔄 Bypassing cache...</div>' : ''}
+                </div>
+            `;
+
+            try {
+                const url = `${API_BASE_URL}/${txid}${forceRefresh ? '?force_refresh=true' : ''}`;
+                const response = await fetch(url);
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `HTTP Error: ${response.status}`);
+                }
+
+                const data = await response.json();
+                displayTransaction(data);
+
+            } catch (error) {
+                resultsDiv.innerHTML = `
+                    <div class="error">
+                        <div class="error-title">❌ Error Fetching Data</div>
+                        <div><strong>Message:</strong> ${error.message}</div>
+                        <div style="margin-top: 10px; font-size: 0.9em;">
+                            Please check:
+                            <ul style="margin-left: 20px; margin-top: 5px;">
+                                <li>The transaction ID is correct</li>
+                                <li>The backend server is running</li>
+                                <li>Your internet connection is working</li>
+                            </ul>
+                        </div>
+                    </div>
+                `;
+            } finally {
+                searchBtn.disabled = false;
+                searchBtn.textContent = 'Search';
+            }
+        }
+
+        function displayTransaction(tx) {
+            const resultsDiv = document.getElementById('results');
+
+            if (!tx) {
+                resultsDiv.innerHTML = `
+                    <div class="no-results">
+                        <div class="no-results-icon">📭</div>
+                        <h2>Transaction Not Found</h2>
+                        <p>The requested transaction could not be found.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Extract transaction data
+            const txid = tx.txid || 'N/A';
+            const version = tx.version || 'N/A';
+            const locktime = tx.locktime || 0;
+            const size = tx.size || 0;
+            const weight = tx.weight || 0;
+            const sigops = tx.sigops || 0;
+            const fee = tx.fee || 0;
+            
+            // Status information
+            const status = tx.status || {};
+            const confirmed = status.confirmed || false;
+            const blockHeight = status.block_height || 'N/A';
+            const blockHash = status.block_hash || 'N/A';
+            const blockTime = status.block_time || 'N/A';
+            
+            // Inputs and outputs
+            const vin = tx.vin || [];
+            const vout = tx.vout || [];
+
+            let html = `
+                <div class="transaction-card">
+                    <div class="tx-header">
+                        <div class="tx-hash">
+                            <strong>Transaction ID:</strong> ${txid}
+                        </div>
+                        <div class="tx-time">
+                            ${formatTimestamp(blockTime)}
+                        </div>
+                    </div>
+                    
+                    <div class="tx-details">
+                        <div class="detail-item">
+                            <div class="detail-label">Version</div>
+                            <div class="detail-value">${version}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Locktime</div>
+                            <div class="detail-value">${locktime}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Size</div>
+                            <div class="detail-value">${size} bytes</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Weight</div>
+                            <div class="detail-value">${weight}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">SigOps</div>
+                            <div class="detail-value">${sigops}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Fee</div>
+                            <div class="detail-value">${fee} satoshis</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Status</div>
+                            <div class="detail-value">
+                                <span class="status-badge status-${confirmed ? 'confirmed' : 'pending'}">
+                                    ${confirmed ? 'CONFIRMED' : 'PENDING'}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Block Height</div>
+                            <div class="detail-value">${blockHeight}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Block Hash</div>
+                            <div class="detail-value">
+                                <span class="clickable-link" onclick="viewBlock('${blockHash}')">${blockHash}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    ${vin.length > 0 ? `
+                    <div class="section-header">
+                        <h3>📥 Inputs (${vin.length})</h3>
+                    </div>
+                    <div class="inputs-outputs">
+                        ${vin.map((input, i) => `
+                            <div class="io-item">
+                                <div class="io-header">
+                                    <strong>Input ${i + 1}</strong>
+                                    ${input.is_coinbase ? '<span class="coinbase-badge">COINBASE</span>' : ''}
+                                </div>
+                                <div class="io-details">
+                                    <div class="detail-item">
+                                        <div class="detail-label">Previous TXID</div>
+                                        <div class="detail-value">${input.txid || 'N/A'}</div>
+                                    </div>
+                                    <div class="detail-item">
+                                        <div class="detail-label">Vout</div>
+                                        <div class="detail-value">${input.vout !== undefined ? input.vout : 'N/A'}</div>
+                                    </div>
+                                    <div class="detail-item">
+                                        <div class="detail-label">Sequence</div>
+                                        <div class="detail-value">${input.sequence || 'N/A'}</div>
+                                    </div>
+                                    <div class="detail-item">
+                                        <div class="detail-label">ScriptSig</div>
+                                        <div class="detail-value">${input.scriptsig || 'N/A'}</div>
+                                    </div>
+                                    <div class="detail-item">
+                                        <div class="detail-label">ScriptSig ASM</div>
+                                        <div class="detail-value">${input.scriptsig_asm || 'N/A'}</div>
+                                    </div>
+                                    ${input.witness && input.witness.length > 0 ? `
+                                    <div class="detail-item">
+                                        <div class="detail-label">Witness</div>
+                                        <div class="detail-value">${input.witness.join(', ')}</div>
+                                    </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    ` : ''}
+                    
+                    ${vout.length > 0 ? `
+                    <div class="section-header">
+                        <h3>📤 Outputs (${vout.length})</h3>
+                    </div>
+                    <div class="inputs-outputs">
+                        ${vout.map((output, i) => `
+                            <div class="io-item">
+                                <div class="io-header">
+                                    <strong>Output ${i + 1}</strong>
+                                    <span class="value-badge">${output.value} satoshis</span>
+                                </div>
+                                <div class="io-details">
+                                    <div class="detail-item">
+                                        <div class="detail-label">ScriptPubKey</div>
+                                        <div class="detail-value">${output.scriptpubkey || 'N/A'}</div>
+                                    </div>
+                                    <div class="detail-item">
+                                        <div class="detail-label">Address</div>
+                                        <div class="detail-value">${output.scriptpubkey_address || 'N/A'}</div>
+                                    </div>
+                                    <div class="detail-item">
+                                        <div class="detail-label">Type</div>
+                                        <div class="detail-value">${output.scriptpubkey_type || 'N/A'}</div>
+                                    </div>
+                                    <div class="detail-item">
+                                        <div class="detail-label">ScriptPubKey ASM</div>
+                                        <div class="detail-value">${output.scriptpubkey_asm || 'N/A'}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    ` : ''}
+                    
+                    <button class="toggle-json" onclick="toggleJson()">
+                        View Raw JSON
+                    </button>
+                    <div id="json-viewer" class="json-viewer" style="display: none;">
+                        <div class="json-content">${JSON.stringify(tx, null, 2)}</div>
+                    </div>
+                </div>
+            `;
+
+            resultsDiv.innerHTML = html;
+        }
+
+        function toggleJson() {
+            const jsonDiv = document.getElementById('json-viewer');
+            const isVisible = jsonDiv.style.display !== 'none';
+            jsonDiv.style.display = isVisible ? 'none' : 'block';
+            event.target.textContent = isVisible ? 'View Raw JSON' : 'Hide Raw JSON';
+        }
+
+        function formatTimestamp(timestamp) {
+            if (!timestamp || timestamp === 'N/A') return 'N/A';
+            
+            // If timestamp is a number (Unix timestamp)
+            if (typeof timestamp === 'number') {
+                return new Date(timestamp * 1000).toLocaleString();
+            }
+            
+            // If timestamp is already a date string
+            const date = new Date(timestamp);
+            if (!isNaN(date.getTime())) {
+                return date.toLocaleString();
+            }
+            
+            return timestamp;
+        }
+
+        function viewBlock(blockHash) {
+            // Navigate to block viewer with the block hash
+            window.location.href = `/block?hash=${blockHash}`;
+        }
+
+        // Load cache status
+        async function loadCacheStatus() {
+            try {
+                const response = await fetch('/api/cache/stats');
+                const stats = await response.json();
+                const statusElement = document.getElementById('cacheStatus');
+                
+                if (stats.status === 'enabled') {
+                    statusElement.innerHTML = `Cache: ✅ Enabled (${stats.keys} keys)`;
+                    statusElement.style.color = '#28a745';
+                } else if (stats.status === 'disabled') {
+                    statusElement.innerHTML = `Cache: ❌ Disabled (${stats.reason})`;
+                    statusElement.style.color = '#dc3545';
+                } else {
+                    statusElement.innerHTML = `Cache: ⚠️ Error (${stats.reason})`;
+                    statusElement.style.color = '#ffc107';
+                }
+            } catch (error) {
+                document.getElementById('cacheStatus').innerHTML = 'Cache: ❌ Error';
+                document.getElementById('cacheStatus').style.color = '#dc3545';
+            }
+        }
+
+        // Focus on input on page load and handle URL parameters
+        window.addEventListener('load', function() {
+            loadCacheStatus();
+            
+            const urlParams = new URLSearchParams(window.location.search);
+            const txid = urlParams.get('txid');
+            if (txid) {
+                document.getElementById('txidInput').value = txid;
+                fetchTransaction();
+            } else {
+                document.getElementById('txidInput').focus();
+            }
+        });
+    </script>
+</body>
+</html>
