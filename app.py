@@ -584,6 +584,7 @@ HTML_TEMPLATE = """
                 <a href="/" class="nav-btn">🔍 Address Viewer</a>
                 <a href="/block" class="nav-btn">🧱 Block Viewer</a>
                 <a href="/transaction" class="nav-btn">🔗 Transaction Viewer</a>
+                <a href="/latest-blocks" class="nav-btn">📋 Latest Blocks</a>
             </div>
         </div>
 
@@ -1040,6 +1041,12 @@ def block_viewer():
 def transaction_viewer():
     """Serve the transaction viewer HTML page"""
     with open('transaction-viewer.html', 'r') as f:
+        return f.read()
+
+@app.route('/latest-blocks')
+def latest_blocks():
+    """Serve the latest blocks HTML page"""
+    with open('latest-blocks.html', 'r') as f:
         return f.read()
 
 @app.route('/api/block/<block_hash>/txs', methods=['GET'])

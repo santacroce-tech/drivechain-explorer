@@ -448,6 +448,7 @@
                 <a href="/" class="nav-btn">🔍 Address Viewer</a>
                 <a href="/block" class="nav-btn">🧱 Block Viewer</a>
                 <a href="/transaction" class="nav-btn">🔗 Transaction Viewer</a>
+                <a href="/latest-blocks" class="nav-btn">📋 Latest Blocks</a>
             </div>
         </div>
 
@@ -475,13 +476,6 @@
         </div>
 
         <div class="content">
-            <div id="latest-blocks-section" style="margin-bottom: 30px;">
-                <div class="section-header">
-                    <h3>📋 Latest Blocks</h3>
-                    <button onclick="fetchLatestBlocks()" class="toggle-json">🔄 Refresh</button>
-                </div>
-                <div id="latest-blocks"></div>
-            </div>
             <div id="results"></div>
         </div>
     </div>
@@ -489,7 +483,6 @@
     <script>
         // Use relative URL to call our backend
         const API_BASE_URL = '/api/block';
-        const LATEST_BLOCKS_API_URL = '/api/blocks/latest';
         
         // Allow Enter key to trigger search
         document.getElementById('blockHashInput').addEventListener('keypress', function(e) {
@@ -884,123 +877,9 @@
             }
         }
 
-        // Function to fetch and display latest blocks
-        async function fetchLatestBlocks() {
-            const latestBlocksDiv = document.getElementById('latest-blocks');
-            
-            try {
-                const response = await fetch(LATEST_BLOCKS_API_URL);
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP Error: ${response.status}`);
-                }
-                
-                const blocks = await response.json();
-                displayLatestBlocks(blocks);
-                
-            } catch (error) {
-                latestBlocksDiv.innerHTML = `
-                    <div class="error">
-                        <div class="error-title">❌ Error Loading Latest Blocks</div>
-                        <div><strong>Message:</strong> ${error.message}</div>
-                    </div>
-                `;
-            }
-        }
-
-        // Function to display latest blocks
-        function displayLatestBlocks(blocks) {
-            const latestBlocksDiv = document.getElementById('latest-blocks');
-            
-            if (!blocks || blocks.length === 0) {
-                latestBlocksDiv.innerHTML = `
-                    <div class="no-results">
-                        <div class="no-results-icon">📭</div>
-                        <h2>No Blocks Found</h2>
-                        <p>No latest blocks were found</p>
-                    </div>
-                `;
-                return;
-            }
-
-            let html = '';
-            
-            blocks.forEach((block, index) => {
-                const blockId = block.id || 'N/A';
-                const height = block.height || 'N/A';
-                const timestamp = block.timestamp || 'N/A';
-                const txCount = block.tx_count || 0;
-                const size = block.size || 0;
-                const weight = block.weight || 0;
-                const difficulty = block.difficulty || 'N/A';
-                const bits = block.bits || 'N/A';
-                const nonce = block.nonce || 'N/A';
-                const merkleRoot = block.merkle_root || 'N/A';
-                const previousBlockHash = block.previousblockhash || 'N/A';
-
-                html += `
-                    <div class="transaction-card" style="margin-bottom: 15px;">
-                        <div class="tx-header">
-                            <div class="tx-hash">
-                                <strong>Block ${height}:</strong> <span class="clickable-link" onclick="viewBlock('${blockId}')">${blockId}</span>
-                            </div>
-                            <div class="tx-time">
-                                ${formatTimestamp(timestamp)}
-                            </div>
-                        </div>
-                        <div class="tx-details">
-                            <div class="detail-item">
-                                <div class="detail-label">Height</div>
-                                <div class="detail-value">${height}</div>
-                            </div>
-                            <div class="detail-item">
-                                <div class="detail-label">Transactions</div>
-                                <div class="detail-value">${txCount}</div>
-                            </div>
-                            <div class="detail-item">
-                                <div class="detail-label">Size</div>
-                                <div class="detail-value">${size} bytes</div>
-                            </div>
-                            <div class="detail-item">
-                                <div class="detail-label">Weight</div>
-                                <div class="detail-value">${weight}</div>
-                            </div>
-                            <div class="detail-item">
-                                <div class="detail-label">Difficulty</div>
-                                <div class="detail-value">
-                                    <span class="difficulty-badge">${difficulty}</span>
-                                </div>
-                            </div>
-                            <div class="detail-item">
-                                <div class="detail-label">Bits</div>
-                                <div class="detail-value">
-                                    <span class="bits-badge">${bits}</span>
-                                </div>
-                            </div>
-                            <div class="detail-item">
-                                <div class="detail-label">Nonce</div>
-                                <div class="detail-value">${nonce}</div>
-                            </div>
-                            <div class="detail-item">
-                                <div class="detail-label">Previous Block</div>
-                                <div class="detail-value clickable-link" onclick="viewBlock('${previousBlockHash}')">${previousBlockHash}</div>
-                            </div>
-                        </div>
-                        <div style="margin-top: 10px;">
-                            <div class="detail-label">Merkle Root</div>
-                            <div class="detail-value" style="font-size: 0.8em;">${merkleRoot}</div>
-                        </div>
-                    </div>
-                `;
-            });
-
-            latestBlocksDiv.innerHTML = html;
-        }
-
         // Focus on input on page load and handle URL parameters
         window.addEventListener('load', function() {
             loadCacheStatus();
-            fetchLatestBlocks(); // Load latest blocks on page load
             
             const urlParams = new URLSearchParams(window.location.search);
             const blockHash = urlParams.get('hash');
