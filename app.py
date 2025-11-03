@@ -222,13 +222,74 @@ def calculate_transaction_usd_value(transaction_data):
         print(f"Error calculating USD value: {e}")
         return None
 
-def decode_coinbase_message(scriptsig_hex):
+def decode_bip300301_message(scriptsig_hex):
     """
-    Decode coinbase message from scriptsig hex string
+    Decode BIP300/301 sidechain messages from coinbase scriptsig hex string
+    Based on the Rust implementation from LayerTwo-Labs/bip300301_enforcer
     """
     try:
         if not scriptsig_hex:
-            return "N/A"
+            return {"type": "none", "message": "N/A"}
+        
+        # Remove any whitespace
+        scriptsig_hex = scriptsig_hex.strip()
+        
+        # Convert hex to bytes
+        scriptsig_bytes = bytes.fromhex(scriptsig_hex)
+        
+        if len(scriptsig_bytes) < 4:
+            return {"type": "none", "message": "Invalid coinbase data"}
+        
+        # Check for BIP300/301 message tags
+        # M1ProposeSidechain: [0xD5, 0xE0, 0xC4, 0xAF]
+        m1_propose_tag = [0xD5, 0xE0, 0xC4, 0xAF]
+        
+        # Look for the tag in the scriptsig
+        for i in range(len(scriptsig_bytes) - 3):
+            if list(scriptsig_bytes[i:i+4]) == m1_propose_tag:
+                # Found M1ProposeSidechain message
+                remaining_bytes = scriptsig_bytes[i+4:]
+                
+                if len(remaining_bytes) < 1:
+                    return {"type": "m1_propose", "message": "Incomplete M1ProposeSidechain message"}
+                
+                # Parse sidechain number (1 byte)
+                sidechain_number = remaining_bytes[0]
+                
+                # Parse description (rest of the bytes)
+                description_bytes = remaining_bytes[1:]
+                
+                # Try to decode description as UTF-8
+                try:
+                    description = description_bytes.decode('utf-8', errors='ignore')
+                    # Clean up the text
+                    description = ''.join(char if char.isprintable() or char.isspace() else '' for char in description)
+                    description = description.strip()
+                except:
+                    description = f"Binary data ({len(description_bytes)} bytes)"
+                
+                return {
+                    "type": "m1_propose_sidechain",
+                    "message": f"M1ProposeSidechain",
+                    "sidechain_number": sidechain_number,
+                    "description": description,
+                    "raw_bytes": scriptsig_hex,
+                    "tag_position": i
+                }
+        
+        # If no BIP300/301 message found, try regular coinbase message decoding
+        return decode_coinbase_message(scriptsig_hex)
+        
+    except Exception as e:
+        return {"type": "error", "message": f"Decode error: {str(e)}"}
+
+def decode_coinbase_message(scriptsig_hex):
+    """
+    Decode regular coinbase message from scriptsig hex string
+    """
+    try:
+        if not scriptsig_hex:
+            return {"type": "none", "message": "N/A"}
         
         # Remove any whitespace
         scriptsig_hex = scriptsig_hex.strip()
@@ -239,7 +300,7 @@ def decode_coinbase_message(scriptsig_hex):
         # The coinbase message is typically after the first few bytes
         # Format: [length][message_bytes]
         if len(scriptsig_bytes) < 2:
-            return "Invalid coinbase data"
+            return {"type": "none", "message": "Invalid coinbase data"}
         
         # Skip the first byte (length indicator) and try to decode as text
         message_bytes = scriptsig_bytes[1:]
@@ -249,18 +310,20 @@ def decode_coinbase_message(scriptsig_hex):
             decoded_text = message_bytes.decode('utf-8', errors='ignore')
             # Clean up the text - remove non-printable characters except spaces
             cleaned_text = ''.join(char if char.isprintable() or char.isspace() else '' for char in decoded_text)
-            return cleaned_text.strip() if cleaned_text.strip() else "Empty message"
+            message = cleaned_text.strip() if cleaned_text.strip() else "Empty message"
+            return {"type": "regular", "message": message}
         except:
             # If UTF-8 fails, try to decode as ASCII
             try:
                 decoded_text = message_bytes.decode('ascii', errors='ignore')
                 cleaned_text = ''.join(char if char.isprintable() or char.isspace() else '' for char in decoded_text)
-                return cleaned_text.strip() if cleaned_text.strip() else "Empty message"
+                message = cleaned_text.strip() if cleaned_text.strip() else "Empty message"
+                return {"type": "regular", "message": message}
             except:
-                return "Binary data (not text)"
+                return {"type": "binary", "message": "Binary data (not text)"}
                 
     except Exception as e:
-        return f"Decode error: {str(e)}"
+        return {"type": "error", "message": f"Decode error: {str(e)}"}
 
 # HTML Template (embedded in Python)
 HTML_TEMPLATE = """
@@ -964,6 +1027,21 @@ HTML_TEMPLATE = """
                                             <div class="detail-label">ScriptSig ASM</div>
                                             <div class="detail-value">${input.scriptsig_asm || 'N/A'}</div>
                                         </div>
+                                        ${input.sidechain_message ? `
+                                        <div class="detail-item">
+                                            <div class="detail-label">Sidechain Message</div>
+                                            <div class="detail-value">
+                                                <div style="background: #f0f8ff; padding: 10px; border-radius: 6px; margin-top: 5px;">
+                                                    <strong>Type:</strong> ${input.sidechain_message.type}<br>
+                                                    <strong>Message:</strong> ${input.sidechain_message.message}<br>
+                                                    ${input.sidechain_message.sidechain_number !== undefined ? `<strong>Sidechain Number:</strong> ${input.sidechain_message.sidechain_number}<br>` : ''}
+                                                    ${input.sidechain_message.description ? `<strong>Description:</strong> ${input.sidechain_message.description}<br>` : ''}
+                                                    ${input.sidechain_message.tag_position !== undefined ? `<strong>Tag Position:</strong> ${input.sidechain_message.tag_position}<br>` : ''}
+                                                    <strong>Raw Bytes:</strong> ${input.sidechain_message.raw_bytes || input.scriptsig}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        ` : ''}
                                         ${input.witness && input.witness.length > 0 ? `
                                         <div class="detail-item">
                                             <div class="detail-label">Witness</div>
@@ -1082,8 +1160,8 @@ HTML_TEMPLATE = """
             const urlParams = new URLSearchParams(window.location.search);
             const txid = urlParams.get('txid');
             if (txid) {
-                document.getElementById('addressInput').value = txid;
-                fetchTransactions();
+                // Redirect to transaction viewer when txid parameter is present
+                window.location.href = `/transaction?txid=${txid}`;
             } else {
                 document.getElementById('addressInput').focus();
             }
@@ -1135,6 +1213,24 @@ def get_transactions(address):
         
         # Get the JSON data
         data = response.json()
+        
+        # Process transactions for BIP300/301 sidechain messages in coinbase inputs
+        if isinstance(data, list):
+            for tx in data:
+                if 'vin' in tx:
+                    for input_tx in tx['vin']:
+                        if input_tx.get('is_coinbase', False) and 'scriptsig' in input_tx:
+                            # Decode the coinbase message for sidechain information
+                            sidechain_info = decode_bip300301_message(input_tx['scriptsig'])
+                            input_tx['sidechain_message'] = sidechain_info
+        elif isinstance(data, dict) and 'transactions' in data:
+            for tx in data['transactions']:
+                if 'vin' in tx:
+                    for input_tx in tx['vin']:
+                        if input_tx.get('is_coinbase', False) and 'scriptsig' in input_tx:
+                            # Decode the coinbase message for sidechain information
+                            sidechain_info = decode_bip300301_message(input_tx['scriptsig'])
+                            input_tx['sidechain_message'] = sidechain_info
         
         # Store in cache
         set_cache(cache_key, data)
@@ -1487,6 +1583,14 @@ def get_transaction(txid):
         
         # Get the JSON data
         data = response.json()
+        
+        # Process coinbase transactions for BIP300/301 sidechain messages
+        if 'vin' in data:
+            for input_tx in data['vin']:
+                if input_tx.get('is_coinbase', False) and 'scriptsig' in input_tx:
+                    # Decode the coinbase message for sidechain information
+                    sidechain_info = decode_bip300301_message(input_tx['scriptsig'])
+                    input_tx['sidechain_message'] = sidechain_info
         
         # Store in cache
         set_cache(cache_key, data)

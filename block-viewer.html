@@ -664,6 +664,13 @@
                 }
             }
 
+            // Get total transaction count from block info, fallback to transactions.length
+            const totalTxCount = blockInfo?.tx_count || transactions.length;
+            
+            // Limit displayed transactions to first 25
+            const displayedTransactions = transactions.slice(0, 25);
+            const hasMoreTransactions = totalTxCount > displayedTransactions.length;
+
             let html = `
                 <div class="block-info">
                     <div class="block-header">
@@ -685,7 +692,7 @@
                         </div>
                         <div class="detail-item">
                             <div class="detail-label">Transaction Count</div>
-                            <div class="detail-value">${transactions.length}</div>
+                            <div class="detail-value">${totalTxCount}</div>
                         </div>
                         <div class="detail-item">
                             <div class="detail-label">Status</div>
@@ -751,11 +758,18 @@
             html += `
                 <div class="transactions-section">
                     <div class="section-header">
-                        <h3>📋 Transactions in this Block (${transactions.length})</h3>
+                        <h3>📋 Transactions in this Block${hasMoreTransactions ? ` (Showing first ${displayedTransactions.length} of ${totalTxCount})` : ` (${totalTxCount})`}</h3>
+                        ${hasMoreTransactions ? `
+                        <div style="margin-top: 10px;">
+                            <button onclick="loadAllTransactions('${blockHash}')" style="background: #4a90e2; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 14px;">
+                                View All ${totalTxCount} Transactions →
+                            </button>
+                        </div>
+                        ` : ''}
                     </div>
             `;
 
-            transactions.forEach((tx, index) => {
+            displayedTransactions.forEach((tx, index) => {
                 const txid = tx.txid || 'N/A';
                 const fee = tx.fee || 0;
                 const size = tx.size || 0;
@@ -846,13 +860,285 @@
         }
 
         function viewTransaction(txid) {
-            // Navigate to address viewer with the TXID
-            window.location.href = `/?txid=${txid}`;
+            // Navigate to transaction viewer with the TXID
+            window.location.href = `/transaction?txid=${txid}`;
         }
 
         function viewBlock(blockHash) {
             // Navigate to block viewer with the block hash
             window.location.href = `/block?hash=${blockHash}`;
+        }
+
+        async function loadAllTransactions(blockHash) {
+            const resultsDiv = document.getElementById('results');
+            const forceRefresh = document.getElementById('forceRefresh').checked;
+            
+            // Show loading state
+            resultsDiv.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <div>Loading all transactions for block: <strong>${blockHash}</strong></div>
+                </div>
+            `;
+
+            try {
+                // Fetch both block info and all transactions in parallel
+                const [txResponse, infoResponse] = await Promise.all([
+                    fetch(`${API_BASE_URL}/${blockHash}/txs${forceRefresh ? '?force_refresh=true' : ''}`),
+                    fetch(`${API_BASE_URL}/${blockHash}/info${forceRefresh ? '?force_refresh=true' : ''}`)
+                ]);
+
+                if (!txResponse.ok) {
+                    const errorData = await txResponse.json();
+                    throw new Error(errorData.error || `HTTP Error: ${txResponse.status}`);
+                }
+
+                if (!infoResponse.ok) {
+                    const errorData = await infoResponse.json();
+                    throw new Error(errorData.error || `HTTP Error: ${infoResponse.status}`);
+                }
+
+                const [txData, infoData] = await Promise.all([
+                    txResponse.json(),
+                    infoResponse.json()
+                ]);
+                
+                // Display all transactions (not limited to 25)
+                displayAllBlockResults(txData, blockHash, infoData);
+
+            } catch (error) {
+                resultsDiv.innerHTML = `
+                    <div class="error">
+                        <div class="error-title">❌ Error Loading Transactions</div>
+                        <div><strong>Message:</strong> ${error.message}</div>
+                    </div>
+                `;
+            }
+        }
+
+        function displayAllBlockResults(data, blockHash, blockInfo = null) {
+            const resultsDiv = document.getElementById('results');
+
+            // Check if data is an array (transactions)
+            const transactions = Array.isArray(data) ? data : [];
+
+            if (!transactions || transactions.length === 0) {
+                resultsDiv.innerHTML = `
+                    <div class="no-results">
+                        <div class="no-results-icon">📭</div>
+                        <h2>No Block Data Found</h2>
+                        <p>No transactions were found for block: <strong>${blockHash}</strong></p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Extract block information from the first transaction
+            const firstTx = transactions[0];
+            const blockHeight = firstTx.status?.block_height || blockInfo?.height || 'N/A';
+            const blockTime = firstTx.status?.block_time || blockInfo?.timestamp || 'N/A';
+            const confirmed = firstTx.status?.confirmed || false;
+
+            // Extract additional block info
+            const difficulty = blockInfo?.difficulty || 'N/A';
+            const megahash = blockInfo?.megahash || 'N/A';
+            const bits = blockInfo?.bits || 'N/A';
+            const version = blockInfo?.version || 'N/A';
+            const merkleRoot = blockInfo?.merkle_root || 'N/A';
+            const previousBlockHash = blockInfo?.previousblockhash || 'N/A';
+            const nonce = blockInfo?.nonce || 'N/A';
+            const size = blockInfo?.size || 'N/A';
+            const weight = blockInfo?.weight || 'N/A';
+
+            // Decode coinbase message from first transaction
+            let coinbaseMessage = 'N/A';
+            if (firstTx.vin && firstTx.vin.length > 0 && firstTx.vin[0].is_coinbase) {
+                const coinbaseInput = firstTx.vin[0];
+                if (coinbaseInput.scriptsig) {
+                    coinbaseMessage = decodeCoinbaseMessage(coinbaseInput.scriptsig);
+                }
+            }
+
+            // Get total transaction count from block info, fallback to transactions.length
+            const totalTxCount = blockInfo?.tx_count || transactions.length;
+
+            let html = `
+                <div class="block-info">
+                    <div class="block-header">
+                        <div class="block-hash">
+                            <strong>Block Hash:</strong> ${blockHash}
+                        </div>
+                        <div class="block-time">
+                            ${formatTimestamp(blockTime)}
+                        </div>
+                    </div>
+                    <div class="block-details">
+                        <div class="detail-item">
+                            <div class="detail-label">Block Height</div>
+                            <div class="detail-value">${blockHeight}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Block Time</div>
+                            <div class="detail-value">${formatTimestamp(blockTime)}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Transaction Count</div>
+                            <div class="detail-value">${totalTxCount}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Status</div>
+                            <div class="detail-value">
+                                <span class="status-badge status-${confirmed ? 'confirmed' : 'pending'}">
+                                    ${confirmed ? 'CONFIRMED' : 'PENDING'}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Difficulty</div>
+                            <div class="detail-value">
+                                <span class="difficulty-badge">${difficulty}</span>
+                            </div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Megahash</div>
+                            <div class="detail-value">
+                                <span class="megahash-badge">${megahash !== 'N/A' ? megahash + ' MH/s' : 'N/A'}</span>
+                            </div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Bits</div>
+                            <div class="detail-value">
+                                <span class="bits-badge">${bits}</span>
+                            </div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Version</div>
+                            <div class="detail-value">${version}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Size</div>
+                            <div class="detail-value">${size} bytes</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Weight</div>
+                            <div class="detail-value">${weight}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Nonce</div>
+                            <div class="detail-value">${nonce}</div>
+                        </div>
+                    </div>
+                    <div class="block-details" style="margin-top: 20px;">
+                        <div class="detail-item" style="grid-column: 1 / -1;">
+                            <div class="detail-label">Merkle Root</div>
+                            <div class="detail-value">${merkleRoot}</div>
+                        </div>
+                        <div class="detail-item" style="grid-column: 1 / -1;">
+                            <div class="detail-label">Previous Block Hash</div>
+                            <div class="detail-value clickable-link" onclick="viewBlock('${previousBlockHash}')">${previousBlockHash}</div>
+                        </div>
+                        <div class="detail-item" style="grid-column: 1 / -1;">
+                            <div class="detail-label">Coinbase Message</div>
+                            <div class="coinbase-message">${coinbaseMessage}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Add transactions section - showing all transactions
+            html += `
+                <div class="transactions-section">
+                    <div class="section-header">
+                        <h3>📋 All Transactions in this Block (${transactions.length}${transactions.length < totalTxCount ? ` of ${totalTxCount}` : ''})</h3>
+                        ${transactions.length < totalTxCount ? `
+                        <div style="margin-top: 10px; color: #ff6b35; font-weight: bold;">
+                            ⚠️ Note: API returned ${transactions.length} transactions, but block info indicates ${totalTxCount} total transactions.
+                        </div>
+                        ` : ''}
+                    </div>
+            `;
+
+            transactions.forEach((tx, index) => {
+                const txid = tx.txid || 'N/A';
+                const fee = tx.fee || 0;
+                const size = tx.size || 0;
+                const weight = tx.weight || 0;
+                const version = tx.version || 'N/A';
+                const locktime = tx.locktime || 0;
+                const sigops = tx.sigops || 0;
+                
+                // Inputs and outputs
+                const vin = tx.vin || [];
+                const vout = tx.vout || [];
+
+                html += `
+                    <div class="transaction-card">
+                        <div class="tx-header">
+                            <div class="tx-hash">
+                                <strong>TXID:</strong> <span class="clickable-link" onclick="viewTransaction('${txid}')">${txid}</span>
+                            </div>
+                        </div>
+                        <div class="tx-details">
+                            <div class="detail-item">
+                                <div class="detail-label">Fee</div>
+                                <div class="detail-value">${fee} satoshis</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Size</div>
+                                <div class="detail-value">${size} bytes</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Weight</div>
+                                <div class="detail-value">${weight}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Version</div>
+                                <div class="detail-value">${version}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Locktime</div>
+                                <div class="detail-value">${locktime}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">SigOps</div>
+                                <div class="detail-value">${sigops}</div>
+                            </div>
+                        </div>
+                        
+                        ${vin.length > 0 ? `
+                        <div style="margin-top: 15px;">
+                            <strong>📥 Inputs (${vin.length}):</strong>
+                            ${vin.map((input, i) => `
+                                <div style="margin: 5px 0; font-size: 0.85em; color: #666;">
+                                    ${i + 1}. ${input.is_coinbase ? 'COINBASE' : (input.txid ? input.txid.substring(0, 20) + '...' : 'N/A')}
+                                </div>
+                            `).join('')}
+                        </div>
+                        ` : ''}
+                        
+                        ${vout.length > 0 ? `
+                        <div style="margin-top: 10px;">
+                            <strong>📤 Outputs (${vout.length}):</strong>
+                            ${vout.map((output, i) => `
+                                <div style="margin: 5px 0; font-size: 0.85em; color: #666;">
+                                    ${i + 1}. ${output.value} satoshis → ${output.scriptpubkey_address || 'N/A'}
+                                </div>
+                            `).join('')}
+                        </div>
+                        ` : ''}
+                        
+                        <button class="toggle-json" onclick="toggleJson(${index})">
+                            View Raw JSON
+                        </button>
+                        <div id="json-${index}" class="json-viewer" style="display: none;">
+                            <div class="json-content">${JSON.stringify(tx, null, 2)}</div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `</div>`;
+            resultsDiv.innerHTML = html;
         }
 
         function formatTimestamp(timestamp) {
