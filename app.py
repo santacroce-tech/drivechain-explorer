@@ -1293,7 +1293,7 @@ def latest_blocks():
 @app.route('/api/block/<block_hash>/txs', methods=['GET'])
 def get_block_transactions(block_hash):
     """
-    Proxy endpoint to fetch transactions from a specific block with caching
+    Proxy endpoint to fetch transactions from a specific block with caching and pagination
     """
     try:
         # Validate block hash (basic validation)
@@ -1306,21 +1306,42 @@ def get_block_transactions(block_hash):
         # Check for force refresh parameter
         force_refresh = request.args.get('force_refresh', 'false').lower() == 'true'
         
-        # Generate cache key
-        cache_key = get_cache_key('block', block_hash)
+        # Get pagination parameters
+        start_index = request.args.get('start_index', type=int)
+        limit = request.args.get('limit', type=int)
         
-        # Try to get from cache first (unless force refresh is requested)
-        if not force_refresh:
+        # Generate cache key (include pagination in cache key if provided)
+        if start_index is not None or limit is not None:
+            # For paginated requests, don't use cache as it's a subset
+            cache_key = None
+        else:
+            cache_key = get_cache_key('block', block_hash)
+        
+        # Try to get from cache first (unless force refresh is requested or paginated)
+        if cache_key and not force_refresh:
             cached_data = get_from_cache(cache_key)
             if cached_data:
                 print(f"✅ Cache hit for block: {block_hash}")
+                # If pagination is requested on cached data, slice it
+                if start_index is not None or limit is not None:
+                    if isinstance(cached_data, list):
+                        start = start_index if start_index is not None else 0
+                        end = start + limit if limit is not None else len(cached_data)
+                        return jsonify(cached_data[start:end]), 200
                 return jsonify(cached_data), 200
 
         # Make request to external API
         url = f"{BLOCK_API_BASE_URL}/{block_hash}/txs"
         
+        # Build query parameters for pagination if provided
+        params = {}
+        if start_index is not None:
+            params['start_index'] = start_index
+        if limit is not None:
+            params['limit'] = limit
+        
         # Set a timeout to avoid hanging requests
-        response = requests.get(url, timeout=30)
+        response = requests.get(url, params=params if params else None, timeout=30)
         
         # Check if request was successful
         response.raise_for_status()
@@ -1328,9 +1349,10 @@ def get_block_transactions(block_hash):
         # Get the JSON data
         data = response.json()
         
-        # Store in cache
-        set_cache(cache_key, data)
-        print(f"💾 Cached data for block: {block_hash}")
+        # Store in cache (only for non-paginated requests)
+        if cache_key:
+            set_cache(cache_key, data)
+            print(f"💾 Cached data for block: {block_hash}")
         
         # Return the JSON data
         return jsonify(data), 200
