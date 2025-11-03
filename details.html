@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pricing Details</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 0.95em;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .nav-btn {
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: 600;
+            color: white;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .nav-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .price-section {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-left: 4px solid #28a745;
+        }
+
+        .price-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .price-title {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .price-value {
+            font-size: 2em;
+            font-weight: 700;
+            color: #28a745;
+        }
+
+        .price-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .price-detail {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .price-detail-label {
+            font-size: 0.8em;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .price-detail-value {
+            font-size: 1.1em;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .search-section {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+
+        .search-title {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .input-wrapper {
+            flex: 1;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px 16px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            font-family: 'Courier New', monospace;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: 600;
+            color: white;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #fee;
+            border-left: 4px solid #f44;
+            padding: 20px;
+            border-radius: 8px;
+            color: #c33;
+            margin: 20px 0;
+        }
+
+        .error-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 1.1em;
+        }
+
+        .transaction-pricing {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .transaction-pricing:hover {
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .pricing-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .tx-id {
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            color: #667eea;
+            font-weight: 600;
+            word-break: break-all;
+            flex: 1;
+            margin-right: 15px;
+        }
+
+        .usd-value {
+            font-size: 1.5em;
+            font-weight: 700;
+            color: #28a745;
+        }
+
+        .pricing-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .pricing-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .pricing-label {
+            font-size: 0.8em;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .pricing-value {
+            font-size: 0.95em;
+            color: #333;
+            font-family: 'Courier New', monospace;
+        }
+
+        .tax-info {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+
+        .tax-title {
+            font-weight: 600;
+            color: #856404;
+            margin-bottom: 10px;
+        }
+
+        .tax-note {
+            font-size: 0.9em;
+            color: #856404;
+            line-height: 1.5;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 60px 20px;
+            color: #888;
+        }
+
+        .no-results-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        @media (max-width: 768px) {
+            .nav-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .input-group {
+                flex-direction: column;
+            }
+
+            .pricing-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+
+            .tx-id {
+                margin-right: 0;
+                margin-bottom: 10px;
+            }
+
+            .pricing-details {
+                grid-template-columns: 1fr;
+            }
+
+            .price-details {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💰 Pricing Details</h1>
+            <p>Calculate USD values and tax information for Bitcoin transactions</p>
+            <div class="nav-buttons">
+                <a href="/" class="nav-btn">🔍 Address Viewer</a>
+                <a href="/block" class="nav-btn">🧱 Block Viewer</a>
+                <a href="/transaction" class="nav-btn">🔗 Transaction Viewer</a>
+                <a href="/latest-blocks" class="nav-btn">📋 Latest Blocks</a>
+                <a href="/mempool" class="nav-btn">💾 Mempool</a>
+                <a href="/details" class="nav-btn">💰 Pricing Details</a>
+            </div>
+        </div>
+
+        <div class="content">
+            <!-- Current Bitcoin Price Section -->
+            <div class="price-section">
+                <div class="price-header">
+                    <div class="price-title">Current Bitcoin Price</div>
+                    <div class="price-value" id="currentPrice">Loading...</div>
+                </div>
+                <div class="price-details">
+                    <div class="price-detail">
+                        <div class="price-detail-label">Last Updated</div>
+                        <div class="price-detail-value" id="lastUpdated">-</div>
+                    </div>
+                    <div class="price-detail">
+                        <div class="price-detail-label">Source</div>
+                        <div class="price-detail-value">CoinDesk API</div>
+                    </div>
+                    <div class="price-detail">
+                        <div class="price-detail-label">Cache Status</div>
+                        <div class="price-detail-value" id="cacheStatus">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Transaction Search Section -->
+            <div class="search-section">
+                <div class="search-title">Transaction Pricing Calculator</div>
+                <div class="input-group">
+                    <div class="input-wrapper">
+                        <input 
+                            type="text" 
+                            id="transactionInput" 
+                            placeholder="Enter transaction ID (e.g., abc123...)" 
+                            autocomplete="off"
+                        />
+                    </div>
+                    <button id="calculateBtn" onclick="calculateTransactionPricing()">Calculate USD Value</button>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div id="results"></div>
+        </div>
+    </div>
+
+    <script>
+        // API endpoints
+        const PRICE_API_URL = '/api/bitcoin/price';
+        const PRICING_API_URL = '/api/transaction';
+
+        // Load current Bitcoin price on page load
+        async function loadCurrentPrice() {
+            try {
+                const response = await fetch(PRICE_API_URL);
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('currentPrice').textContent = `$${data.price_usd.toLocaleString()}`;
+                    document.getElementById('lastUpdated').textContent = new Date(data.timestamp).toLocaleString();
+                    document.getElementById('cacheStatus').textContent = 'Live';
+                } else {
+                    document.getElementById('currentPrice').textContent = 'Error';
+                    document.getElementById('cacheStatus').textContent = 'Error';
+                }
+            } catch (error) {
+                document.getElementById('currentPrice').textContent = 'Error';
+                document.getElementById('cacheStatus').textContent = 'Error';
+            }
+        }
+
+        // Allow Enter key to trigger calculation
+        document.getElementById('transactionInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                calculateTransactionPricing();
+            }
+        });
+
+        async function calculateTransactionPricing() {
+            const txid = document.getElementById('transactionInput').value.trim();
+            const resultsDiv = document.getElementById('results');
+            const calculateBtn = document.getElementById('calculateBtn');
+
+            // Validation
+            if (!txid) {
+                resultsDiv.innerHTML = `
+                    <div class="error">
+                        <div class="error-title">⚠️ Validation Error</div>
+                        <div>Please enter a valid transaction ID</div>
+                    </div>
+                `;
+                return;
+            }
+
+            // Show loading state
+            calculateBtn.disabled = true;
+            calculateBtn.textContent = 'Calculating...';
+            resultsDiv.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <div>Calculating USD value for transaction: <strong>${txid}</strong></div>
+                </div>
+            `;
+
+            try {
+                const url = `${PRICING_API_URL}/${txid}/pricing`;
+                const response = await fetch(url);
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `HTTP Error: ${response.status}`);
+                }
+
+                const data = await response.json();
+                displayPricingResults(data);
+
+            } catch (error) {
+                resultsDiv.innerHTML = `
+                    <div class="error">
+                        <div class="error-title">❌ Error Calculating Pricing</div>
+                        <div><strong>Message:</strong> ${error.message}</div>
+                        <div style="margin-top: 10px; font-size: 0.9em;">
+                            Please check:
+                            <ul style="margin-left: 20px; margin-top: 5px;">
+                                <li>The transaction ID is correct</li>
+                                <li>The transaction exists on the blockchain</li>
+                                <li>The backend server is running</li>
+                            </ul>
+                        </div>
+                    </div>
+                `;
+            } finally {
+                calculateBtn.disabled = false;
+                calculateBtn.textContent = 'Calculate USD Value';
+            }
+        }
+
+        function displayPricingResults(data) {
+            const resultsDiv = document.getElementById('results');
+
+            const html = `
+                <div class="transaction-pricing">
+                    <div class="pricing-header">
+                        <div class="tx-id">
+                            <strong>Transaction:</strong> ${data.transaction_id}
+                        </div>
+                        <div class="usd-value">
+                            $${data.usd_value.toLocaleString(2)}
+                        </div>
+                    </div>
+                    <div class="pricing-details">
+                        <div class="pricing-item">
+                            <div class="pricing-label">Total Value (Satoshis)</div>
+                            <div class="pricing-value">${data.total_satoshis.toLocaleString()}</div>
+                        </div>
+                        <div class="pricing-item">
+                            <div class="pricing-label">Total Value (BTC)</div>
+                            <div class="pricing-value">${data.total_btc.toFixed(8)}</div>
+                        </div>
+                        <div class="pricing-item">
+                            <div class="pricing-label">Bitcoin Price Used</div>
+                            <div class="pricing-value">$${data.bitcoin_price_usd.toLocaleString()}</div>
+                        </div>
+                        <div class="pricing-item">
+                            <div class="pricing-label">Block Height</div>
+                            <div class="pricing-value">${data.transaction_data.block_height || 'N/A'}</div>
+                        </div>
+                        <div class="pricing-item">
+                            <div class="pricing-label">Block Time</div>
+                            <div class="pricing-value">${formatTimestamp(data.transaction_data.block_time)}</div>
+                        </div>
+                        <div class="pricing-item">
+                            <div class="pricing-label">Status</div>
+                            <div class="pricing-value">${data.transaction_data.confirmed ? 'Confirmed' : 'Pending'}</div>
+                        </div>
+                        <div class="pricing-item">
+                            <div class="pricing-label">Calculation Time</div>
+                            <div class="pricing-value">${new Date(data.calculation_time).toLocaleString()}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="tax-info">
+                        <div class="tax-title">📊 Tax Information</div>
+                        <div class="tax-note">
+                            <strong>Important:</strong> This USD value calculation is for informational purposes only. 
+                            For tax purposes, you should use the Bitcoin price at the time of the transaction, 
+                            not the current price. Consider consulting with a tax professional for accurate 
+                            cryptocurrency tax calculations.
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            resultsDiv.innerHTML = html;
+        }
+
+        function formatTimestamp(timestamp) {
+            if (!timestamp || timestamp === 'N/A') return 'N/A';
+            
+            // If timestamp is a number (Unix timestamp)
+            if (typeof timestamp === 'number') {
+                return new Date(timestamp * 1000).toLocaleString();
+            }
+            
+            // If timestamp is already a date string
+            const date = new Date(timestamp);
+            if (!isNaN(date.getTime())) {
+                return date.toLocaleString();
+            }
+            
+            return timestamp;
+        }
+
+        // Load current price on page load
+        window.addEventListener('load', function() {
+            loadCurrentPrice();
+            
+            // Refresh price every 30 seconds
+            setInterval(loadCurrentPrice, 30000);
+        });
+    </script>
+</body>
+</html>

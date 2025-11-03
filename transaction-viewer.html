@@ -449,6 +449,7 @@
                 <a href="/transaction" class="nav-btn">🔗 Transaction Viewer</a>
                 <a href="/latest-blocks" class="nav-btn">📋 Latest Blocks</a>
                 <a href="/mempool" class="nav-btn">💾 Mempool</a>
+                <a href="/details" class="nav-btn">💰 Pricing Details</a>
             </div>
         </div>
 
@@ -674,6 +675,21 @@
                                         <div class="detail-label">ScriptSig ASM</div>
                                         <div class="detail-value">${input.scriptsig_asm || 'N/A'}</div>
                                     </div>
+                                    ${input.sidechain_message ? `
+                                    <div class="detail-item">
+                                        <div class="detail-label">Sidechain Message</div>
+                                        <div class="detail-value">
+                                            <div style="background: #f0f8ff; padding: 10px; border-radius: 6px; margin-top: 5px;">
+                                                <strong>Type:</strong> ${input.sidechain_message.type}<br>
+                                                <strong>Message:</strong> ${input.sidechain_message.message}<br>
+                                                ${input.sidechain_message.sidechain_number !== undefined ? `<strong>Sidechain Number:</strong> ${input.sidechain_message.sidechain_number}<br>` : ''}
+                                                ${input.sidechain_message.description ? `<strong>Description:</strong> ${input.sidechain_message.description}<br>` : ''}
+                                                ${input.sidechain_message.tag_position !== undefined ? `<strong>Tag Position:</strong> ${input.sidechain_message.tag_position}<br>` : ''}
+                                                <strong>Raw Bytes:</strong> ${input.sidechain_message.raw_bytes || input.scriptsig}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    ` : ''}
                                     ${input.witness && input.witness.length > 0 ? `
                                     <div class="detail-item">
                                         <div class="detail-label">Witness</div>

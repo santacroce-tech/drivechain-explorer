@@ -294,6 +294,16 @@
             display: inline-block;
         }
 
+        .megahash-badge {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            display: inline-block;
+        }
+
         .bits-badge {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -450,6 +460,7 @@
                 <a href="/transaction" class="nav-btn">🔗 Transaction Viewer</a>
                 <a href="/latest-blocks" class="nav-btn">📋 Latest Blocks</a>
                 <a href="/mempool" class="nav-btn">💾 Mempool</a>
+                <a href="/details" class="nav-btn">💰 Pricing Details</a>
             </div>
         </div>
 
@@ -466,6 +477,10 @@
                 <button id="searchBtn" onclick="fetchBlock()">Search Block</button>
             </div>
             <div class="search-options">
+                <div class="checkbox-wrapper">
+                    <input type="checkbox" id="useBlockNumber" />
+                    <label for="useBlockNumber">🔢 Use block number instead of hash</label>
+                </div>
                 <div class="checkbox-wrapper">
                     <input type="checkbox" id="forceRefresh" />
                     <label for="forceRefresh">🔄 Force refresh (bypass cache)</label>
@@ -484,6 +499,7 @@
     <script>
         // Use relative URL to call our backend
         const API_BASE_URL = '/api/block';
+        const BLOCK_HEIGHT_API_URL = '/api/block-height';
         
         // Allow Enter key to trigger search
         document.getElementById('blockHashInput').addEventListener('keypress', function(e) {
@@ -492,18 +508,32 @@
             }
         });
 
+        // Update placeholder text based on checkbox state
+        document.getElementById('useBlockNumber').addEventListener('change', function() {
+            const input = document.getElementById('blockHashInput');
+            const useBlockNumber = this.checked;
+            
+            if (useBlockNumber) {
+                input.placeholder = 'Enter block number (e.g., 919296)';
+            } else {
+                input.placeholder = 'Enter block hash (e.g., 000000007952236b060bb8f215cd9090b4384647638a80f20f6879e31ac5da20)';
+            }
+        });
+
         async function fetchBlock() {
-            const blockHash = document.getElementById('blockHashInput').value.trim();
+            const inputValue = document.getElementById('blockHashInput').value.trim();
             const resultsDiv = document.getElementById('results');
             const searchBtn = document.getElementById('searchBtn');
             const forceRefresh = document.getElementById('forceRefresh').checked;
+            const useBlockNumber = document.getElementById('useBlockNumber').checked;
 
             // Validation
-            if (!blockHash) {
+            if (!inputValue) {
+                const inputType = useBlockNumber ? 'block number' : 'block hash';
                 resultsDiv.innerHTML = `
                     <div class="error">
                         <div class="error-title">⚠️ Validation Error</div>
-                        <div>Please enter a valid block hash</div>
+                        <div>Please enter a valid ${inputType}</div>
                     </div>
                 `;
                 return;
@@ -515,15 +545,40 @@
             resultsDiv.innerHTML = `
                 <div class="loading">
                     <div class="spinner"></div>
-                    <div>Fetching block details for: <strong>${blockHash}</strong></div>
+                    <div>Fetching block details for: <strong>${inputValue}</strong></div>
                     ${forceRefresh ? '<div style="margin-top: 10px; color: #ff6b35;">🔄 Bypassing cache...</div>' : ''}
                 </div>
             `;
 
             try {
-                // Fetch both block info and transactions in parallel
+                let blockHash = inputValue;
+                
+                // If using block number, first get the block hash
+                if (useBlockNumber) {
+                    const heightResponse = await fetch(`${BLOCK_HEIGHT_API_URL}/${inputValue}${forceRefresh ? '?force_refresh=true' : ''}`);
+                    
+                    if (!heightResponse.ok) {
+                        const errorData = await heightResponse.json();
+                        throw new Error(errorData.error || `HTTP Error: ${heightResponse.status}`);
+                    }
+                    
+                    const heightData = await heightResponse.json();
+                    blockHash = heightData.hash;
+                    
+                    // Show that we converted block number to hash
+                    resultsDiv.innerHTML = `
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            <div>Block ${inputValue} → Hash: <strong>${blockHash}</strong></div>
+                            <div style="margin-top: 10px;">Fetching block details...</div>
+                            ${forceRefresh ? '<div style="margin-top: 10px; color: #ff6b35;">🔄 Bypassing cache...</div>' : ''}
+                        </div>
+                    `;
+                }
+
+                // Fetch both block info and transactions in parallel (first page: 25 transactions)
                 const [txResponse, infoResponse] = await Promise.all([
-                    fetch(`${API_BASE_URL}/${blockHash}/txs${forceRefresh ? '?force_refresh=true' : ''}`),
+                    fetch(`${API_BASE_URL}/${blockHash}/txs?start_index=0&limit=25${forceRefresh ? '&force_refresh=true' : ''}`),
                     fetch(`${API_BASE_URL}/${blockHash}/info${forceRefresh ? '?force_refresh=true' : ''}`)
                 ]);
 
@@ -542,9 +597,10 @@
                     infoResponse.json()
                 ]);
                 
-                displayBlockResults(txData, blockHash, infoData);
+                displayBlockResults(txData, blockHash, infoData, 0, 25);
 
             } catch (error) {
+                const inputType = useBlockNumber ? 'block number' : 'block hash';
                 resultsDiv.innerHTML = `
                     <div class="error">
                         <div class="error-title">❌ Error Fetching Data</div>
@@ -552,7 +608,7 @@
                         <div style="margin-top: 10px; font-size: 0.9em;">
                             Please check:
                             <ul style="margin-left: 20px; margin-top: 5px;">
-                                <li>The block hash is correct</li>
+                                <li>The ${inputType} is correct</li>
                                 <li>The backend server is running</li>
                                 <li>Your internet connection is working</li>
                             </ul>
@@ -565,7 +621,7 @@
             }
         }
 
-        function displayBlockResults(data, blockHash, blockInfo = null) {
+        function displayBlockResults(data, blockHash, blockInfo = null, startIndex = 0, pageSize = 25) {
             const resultsDiv = document.getElementById('results');
 
             // Check if data is an array (transactions)
@@ -590,6 +646,7 @@
 
             // Extract additional block info
             const difficulty = blockInfo?.difficulty || 'N/A';
+            const megahash = blockInfo?.megahash || 'N/A';
             const bits = blockInfo?.bits || 'N/A';
             const version = blockInfo?.version || 'N/A';
             const merkleRoot = blockInfo?.merkle_root || 'N/A';
@@ -606,6 +663,17 @@
                     coinbaseMessage = decodeCoinbaseMessage(coinbaseInput.scriptsig);
                 }
             }
+
+            // Get total transaction count from block info, fallback to transactions.length
+            const totalTxCount = blockInfo?.tx_count || transactions.length;
+            
+            // Use the transactions from the paginated response
+            const displayedTransactions = transactions;
+            const currentPage = Math.floor(startIndex / pageSize) + 1;
+            const totalPages = Math.ceil(totalTxCount / pageSize);
+            const endIndex = Math.min(startIndex + displayedTransactions.length, totalTxCount);
+            const hasMoreTransactions = totalTxCount > (startIndex + displayedTransactions.length);
+            const hasPrevious = startIndex > 0;
 
             let html = `
                 <div class="block-info">
@@ -628,7 +696,7 @@
                         </div>
                         <div class="detail-item">
                             <div class="detail-label">Transaction Count</div>
-                            <div class="detail-value">${transactions.length}</div>
+                            <div class="detail-value">${totalTxCount}</div>
                         </div>
                         <div class="detail-item">
                             <div class="detail-label">Status</div>
@@ -642,6 +710,12 @@
                             <div class="detail-label">Difficulty</div>
                             <div class="detail-value">
                                 <span class="difficulty-badge">${difficulty}</span>
+                            </div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Megahash</div>
+                            <div class="detail-value">
+                                <span class="megahash-badge">${megahash !== 'N/A' ? megahash + ' MH/s' : 'N/A'}</span>
                             </div>
                         </div>
                         <div class="detail-item">
@@ -688,11 +762,24 @@
             html += `
                 <div class="transactions-section">
                     <div class="section-header">
-                        <h3>📋 Transactions in this Block (${transactions.length})</h3>
+                        <h3>📋 Transactions in this Block (${startIndex + 1}-${endIndex} of ${totalTxCount})</h3>
+                        <div style="margin-top: 10px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                            ${hasPrevious ? `
+                            <button onclick="loadTransactionsPage('${blockHash}', ${startIndex - pageSize}, ${pageSize})" style="background: #4a90e2; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 14px;">
+                                ← Previous
+                            </button>
+                            ` : ''}
+                            ${hasMoreTransactions ? `
+                            <button onclick="loadTransactionsPage('${blockHash}', ${startIndex + pageSize}, ${pageSize})" style="background: #4a90e2; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 14px;">
+                                Next →
+                            </button>
+                            ` : ''}
+                            <span style="color: #666; font-size: 14px;">Page ${currentPage} of ${totalPages}</span>
+                        </div>
                     </div>
             `;
 
-            transactions.forEach((tx, index) => {
+            displayedTransactions.forEach((tx, index) => {
                 const txid = tx.txid || 'N/A';
                 const fee = tx.fee || 0;
                 const size = tx.size || 0;
@@ -783,14 +870,62 @@
         }
 
         function viewTransaction(txid) {
-            // Navigate to address viewer with the TXID
-            window.location.href = `/?txid=${txid}`;
+            // Navigate to transaction viewer with the TXID
+            window.location.href = `/transaction?txid=${txid}`;
         }
 
         function viewBlock(blockHash) {
             // Navigate to block viewer with the block hash
             window.location.href = `/block?hash=${blockHash}`;
         }
+
+        async function loadTransactionsPage(blockHash, startIndex = 0, pageSize = 25) {
+            const resultsDiv = document.getElementById('results');
+            const forceRefresh = document.getElementById('forceRefresh').checked;
+            
+            // Show loading state
+            resultsDiv.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <div>Loading transactions ${startIndex + 1}-${startIndex + pageSize} for block: <strong>${blockHash}</strong></div>
+                </div>
+            `;
+
+            try {
+                // Fetch both block info and paginated transactions in parallel
+                const [txResponse, infoResponse] = await Promise.all([
+                    fetch(`${API_BASE_URL}/${blockHash}/txs?start_index=${startIndex}&limit=${pageSize}${forceRefresh ? '&force_refresh=true' : ''}`),
+                    fetch(`${API_BASE_URL}/${blockHash}/info${forceRefresh ? '?force_refresh=true' : ''}`)
+                ]);
+
+                if (!txResponse.ok) {
+                    const errorData = await txResponse.json();
+                    throw new Error(errorData.error || `HTTP Error: ${txResponse.status}`);
+                }
+
+                if (!infoResponse.ok) {
+                    const errorData = await infoResponse.json();
+                    throw new Error(errorData.error || `HTTP Error: ${infoResponse.status}`);
+                }
+
+                const [txData, infoData] = await Promise.all([
+                    txResponse.json(),
+                    infoResponse.json()
+                ]);
+                
+                // Display paginated transactions
+                displayBlockResults(txData, blockHash, infoData, startIndex, pageSize);
+
+            } catch (error) {
+                resultsDiv.innerHTML = `
+                    <div class="error">
+                        <div class="error-title">❌ Error Loading Transactions</div>
+                        <div><strong>Message:</strong> ${error.message}</div>
+                    </div>
+                `;
+            }
+        }
+
 
         function formatTimestamp(timestamp) {
             if (!timestamp || timestamp === 'N/A') return 'N/A';
