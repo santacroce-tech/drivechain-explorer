@@ -1860,8 +1860,8 @@ def get_latest_blocks():
                             block['megahash'] = calculate_megahash(block['difficulty'])
                         elif 'megahash' not in block:
                             block['megahash'] = 0
-                    # Reverse to show newest blocks first
-                    cached_data.reverse()
+                    # Sort by height descending to show newest blocks first
+                    cached_data.sort(key=lambda x: x.get('height', 0) if isinstance(x.get('height'), (int, float)) else 0, reverse=True)
                 elif isinstance(cached_data, dict) and 'difficulty' in cached_data:
                     cached_data['megahash'] = calculate_megahash(cached_data['difficulty'])
                 return jsonify(cached_data), 200
@@ -1885,11 +1885,13 @@ def get_latest_blocks():
                     block['megahash'] = calculate_megahash(block['difficulty'])
                 else:
                     block['megahash'] = 0
-            # Store in cache (store in original order from API)
+            # Sort by height descending to show newest blocks first
+            # Height is the most reliable indicator of block age (higher = newer)
+            data.sort(key=lambda x: x.get('height', 0) if isinstance(x.get('height'), (int, float)) else 0, reverse=True)
+            
+            # Store in cache (store in sorted order)
             data_for_cache = copy.deepcopy(data)
             set_cache(cache_key, data_for_cache)
-            # Reverse to show newest blocks first (before returning)
-            data.reverse()
         elif isinstance(data, dict) and 'difficulty' in data:
             data['megahash'] = calculate_megahash(data['difficulty'])
             set_cache(cache_key, data)
