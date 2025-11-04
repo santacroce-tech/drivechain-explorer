@@ -6,6 +6,7 @@ import json
 import hashlib
 from datetime import datetime, timedelta
 import binascii
+import copy
 import threading
 import time
 
@@ -1884,14 +1885,18 @@ def get_latest_blocks():
                     block['megahash'] = calculate_megahash(block['difficulty'])
                 else:
                     block['megahash'] = 0
+            # Store in cache (store in original order from API)
+            data_for_cache = copy.deepcopy(data)
+            set_cache(cache_key, data_for_cache)
+            # Reverse to show newest blocks first (before returning)
+            data.reverse()
         elif isinstance(data, dict) and 'difficulty' in data:
             data['megahash'] = calculate_megahash(data['difficulty'])
+            set_cache(cache_key, data)
         
-        # Store in cache
-        set_cache(cache_key, data)
         print(f"💾 Cached latest blocks data")
         
-        # Return the JSON data
+        # Return the JSON data (reversed for display if it was a list)
         return jsonify(data), 200
 
     except requests.exceptions.Timeout:
