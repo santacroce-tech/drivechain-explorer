@@ -867,9 +867,6 @@ HTML_TEMPLATE = """
             <a href="/latest-blocks" class="nav-item">
                 <span class="nav-item-icon">📋</span> Latest Blocks
             </a>
-            <a href="/coinbases" class="nav-item">
-                <span class="nav-item-icon">💰</span> Coinbases
-            </a>
             <a href="/mempool" class="nav-item">
                 <span class="nav-item-icon">💾</span> Mempool
             </a>
@@ -1862,6 +1859,8 @@ def get_latest_blocks():
                             block['megahash'] = calculate_megahash(block['difficulty'])
                         elif 'megahash' not in block:
                             block['megahash'] = 0
+                    # Reverse to show newest blocks first
+                    cached_data.reverse()
                 elif isinstance(cached_data, dict) and 'difficulty' in cached_data:
                     cached_data['megahash'] = calculate_megahash(cached_data['difficulty'])
                 return jsonify(cached_data), 200
