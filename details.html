@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pricing Details</title>
+    <title>Pricing Details - Blockchain Explorer</title>
     <style>
         * {
             margin: 0;
@@ -12,76 +12,122 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f7fa;
+            color: #2d3748;
             min-height: 100vh;
-            padding: 20px;
+            display: flex;
         }
 
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            overflow: hidden;
-        }
-
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        .sidebar {
+            width: 260px;
+            background: #1a202c;
             color: white;
-            padding: 30px;
-            text-align: center;
+            min-height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            overflow-y: auto;
+            z-index: 1000;
         }
 
-        .header h1 {
-            font-size: 2em;
-            margin-bottom: 10px;
+        .sidebar-header {
+            padding: 24px 20px;
+            border-bottom: 1px solid #2d3748;
         }
 
-        .header p {
-            opacity: 0.9;
+        .sidebar-header h1 {
+            font-size: 1.5em;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 4px;
+        }
+
+        .sidebar-header p {
+            font-size: 0.85em;
+            color: #a0aec0;
+        }
+
+        .nav-menu {
+            padding: 16px 0;
+        }
+
+        .nav-item {
+            display: block;
+            padding: 12px 20px;
+            color: #cbd5e0;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            border-left: 3px solid transparent;
             font-size: 0.95em;
         }
 
-        .nav-buttons {
-            display: flex;
-            gap: 15px;
-            justify-content: center;
-            margin-top: 15px;
-            flex-wrap: wrap;
+        .nav-item:hover {
+            background: #2d3748;
+            color: white;
+            border-left-color: #4299e1;
         }
 
-        .nav-btn {
-            padding: 10px 20px;
-            font-size: 14px;
-            font-weight: 600;
+        .nav-item.active {
+            background: #2d3748;
             color: white;
-            background: rgba(255, 255, 255, 0.2);
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 25px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-decoration: none;
+            border-left-color: #4299e1;
+            font-weight: 600;
+        }
+
+        .nav-item-icon {
+            margin-right: 12px;
+            width: 20px;
             display: inline-block;
         }
 
-        .nav-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
-            border-color: rgba(255, 255, 255, 0.5);
-            transform: translateY(-2px);
+        .main-content {
+            flex: 1;
+            margin-left: 260px;
+            min-height: 100vh;
+        }
+
+        .top-bar {
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 16px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .page-title {
+            font-size: 1.75em;
+            font-weight: 700;
+            color: #1a202c;
+        }
+
+        .content-area {
+            padding: 32px;
         }
 
         .content {
-            padding: 30px;
+            padding: 0;
+        }
+
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e2e8f0;
+            margin-bottom: 24px;
+            padding: 24px;
         }
 
         .price-section {
-            background: #f8f9fa;
+            background: white;
             border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 30px;
-            border-left: 4px solid #28a745;
+            padding: 24px;
+            margin-bottom: 24px;
+            border-left: 4px solid #48bb78;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
 
         .price-header {
@@ -94,13 +140,13 @@
         .price-title {
             font-size: 1.2em;
             font-weight: 600;
-            color: #333;
+            color: #1a202c;
         }
 
         .price-value {
             font-size: 2em;
             font-weight: 700;
-            color: #28a745;
+            color: #48bb78;
         }
 
         .price-details {
@@ -133,16 +179,18 @@
         }
 
         .search-section {
-            background: #f8f9fa;
+            background: white;
             border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 30px;
+            padding: 24px;
+            margin-bottom: 24px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
 
         .search-title {
             font-size: 1.2em;
             font-weight: 600;
-            color: #333;
+            color: #1a202c;
             margin-bottom: 15px;
         }
 
@@ -168,26 +216,27 @@
 
         input[type="text"]:focus {
             outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            border-color: #4299e1;
+            box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
         }
 
         button {
             padding: 12px 24px;
             font-size: 16px;
-            font-weight: 600;
+            font-weight: 500;
             color: white;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #4299e1;
             border: none;
-            border-radius: 8px;
+            border-radius: 6px;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
             white-space: nowrap;
         }
 
         button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+            background: #3182ce;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(66, 153, 225, 0.3);
         }
 
         button:disabled {
@@ -361,21 +410,43 @@
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>💰 Pricing Details</h1>
-            <p>Calculate USD values and tax information for Bitcoin transactions</p>
-            <div class="nav-buttons">
-                <a href="/" class="nav-btn">🔍 Address Viewer</a>
-                <a href="/block" class="nav-btn">🧱 Block Viewer</a>
-                <a href="/transaction" class="nav-btn">🔗 Transaction Viewer</a>
-                <a href="/latest-blocks" class="nav-btn">📋 Latest Blocks</a>
-                <a href="/mempool" class="nav-btn">💾 Mempool</a>
-                <a href="/details" class="nav-btn">💰 Pricing Details</a>
-            </div>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h1>🔗 Blockchain Explorer</h1>
+            <p>Bitcoin & Sidechain Explorer</p>
+        </div>
+        <nav class="nav-menu">
+            <a href="/" class="nav-item">
+                <span class="nav-item-icon">🏠</span> Home
+            </a>
+            <a href="/block" class="nav-item">
+                <span class="nav-item-icon">🧱</span> Block Viewer
+            </a>
+            <a href="/transaction" class="nav-item">
+                <span class="nav-item-icon">🔗</span> Transaction Viewer
+            </a>
+            <a href="/latest-blocks" class="nav-item">
+                <span class="nav-item-icon">📋</span> Latest Blocks
+            </a>
+            <a href="/coinbases" class="nav-item">
+                <span class="nav-item-icon">💰</span> Coinbases
+            </a>
+            <a href="/mempool" class="nav-item">
+                <span class="nav-item-icon">💾</span> Mempool
+            </a>
+            <a href="/details" class="nav-item active">
+                <span class="nav-item-icon">📊</span> Pricing Details
+            </a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <div class="top-bar">
+            <h1 class="page-title">📊 Pricing Details</h1>
         </div>
 
-        <div class="content">
+        <div class="content-area">
+            <div class="content">
             <!-- Current Bitcoin Price Section -->
             <div class="price-section">
                 <div class="price-header">

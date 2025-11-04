@@ -44,6 +44,7 @@ ADDRESS_API_BASE_URL = "http://157.180.8.224:3000/address"
 BLOCK_API_BASE_URL = "http://157.180.8.224:3000/block"
 TX_API_BASE_URL = "http://157.180.8.224:3000/tx"
 BLOCKS_API_BASE_URL = "http://157.180.8.224:3000/blocks"
+BLOCKS_BULK_API_BASE_URL = "http://157.180.8.224:3000/api/blocks-bulk"
 MEMPOOL_API_BASE_URL = "http://157.180.8.224:3000/mempool"
 
 # Redis Configuration
@@ -332,7 +333,7 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Address Viewer</title>
+    <title>Address Viewer - Blockchain Explorer</title>
     <style>
         * {
             margin: 0;
@@ -341,69 +342,113 @@ HTML_TEMPLATE = """
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f7fa;
+            color: #2d3748;
             min-height: 100vh;
-            padding: 20px;
+            display: flex;
         }
 
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            overflow: hidden;
-        }
-
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        .sidebar {
+            width: 260px;
+            background: #1a202c;
             color: white;
-            padding: 30px;
-            text-align: center;
+            min-height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            overflow-y: auto;
+            z-index: 1000;
         }
 
-        .header h1 {
-            font-size: 2em;
-            margin-bottom: 10px;
+        .sidebar-header {
+            padding: 24px 20px;
+            border-bottom: 1px solid #2d3748;
         }
 
-        .header p {
-            opacity: 0.9;
+        .sidebar-header h1 {
+            font-size: 1.5em;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 4px;
+        }
+
+        .sidebar-header p {
+            font-size: 0.85em;
+            color: #a0aec0;
+        }
+
+        .nav-menu {
+            padding: 16px 0;
+        }
+
+        .nav-item {
+            display: block;
+            padding: 12px 20px;
+            color: #cbd5e0;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            border-left: 3px solid transparent;
             font-size: 0.95em;
         }
 
-        .nav-buttons {
-            display: flex;
-            gap: 15px;
-            justify-content: center;
-            margin-top: 15px;
+        .nav-item:hover {
+            background: #2d3748;
+            color: white;
+            border-left-color: #4299e1;
         }
 
-        .nav-btn {
-            padding: 10px 20px;
-            font-size: 14px;
-            font-weight: 600;
+        .nav-item.active {
+            background: #2d3748;
             color: white;
-            background: rgba(255, 255, 255, 0.2);
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 25px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-decoration: none;
+            border-left-color: #4299e1;
+            font-weight: 600;
+        }
+
+        .nav-item-icon {
+            margin-right: 12px;
+            width: 20px;
             display: inline-block;
         }
 
-        .nav-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
-            border-color: rgba(255, 255, 255, 0.5);
-            transform: translateY(-2px);
+        .main-content {
+            flex: 1;
+            margin-left: 260px;
+            min-height: 100vh;
+        }
+
+        .top-bar {
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 16px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .page-title {
+            font-size: 1.75em;
+            font-weight: 700;
+            color: #1a202c;
+        }
+
+        .content-area {
+            padding: 32px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e2e8f0;
+            margin-bottom: 24px;
         }
 
         .search-section {
-            padding: 30px;
-            background: #f8f9fa;
-            border-bottom: 1px solid #e0e0e0;
+            padding: 24px;
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
         }
 
         .input-group {
@@ -449,16 +494,17 @@ HTML_TEMPLATE = """
             width: 100%;
             padding: 14px 20px;
             font-size: 16px;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            transition: all 0.3s ease;
+            border: 1px solid #cbd5e0;
+            border-radius: 6px;
+            transition: all 0.2s ease;
             font-family: 'Courier New', monospace;
+            background: white;
         }
 
         input[type="text"]:focus {
             outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            border-color: #4299e1;
+            box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
         }
 
         button {
@@ -490,22 +536,22 @@ HTML_TEMPLATE = """
         }
 
         .content {
-            padding: 30px;
+            padding: 24px;
         }
 
         .loading {
             text-align: center;
-            padding: 40px;
-            color: #667eea;
+            padding: 60px 20px;
+            color: #4299e1;
         }
 
         .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
+            border: 3px solid #e2e8f0;
+            border-top: 3px solid #4299e1;
             border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            animation: spin 1s linear infinite;
+            width: 40px;
+            height: 40px;
+            animation: spin 0.8s linear infinite;
             margin: 0 auto 20px;
         }
 
@@ -515,11 +561,11 @@ HTML_TEMPLATE = """
         }
 
         .error {
-            background: #fee;
-            border-left: 4px solid #f44;
+            background: #fed7d7;
+            border-left: 4px solid #e53e3e;
             padding: 20px;
-            border-radius: 8px;
-            color: #c33;
+            border-radius: 6px;
+            color: #742a2a;
             margin: 20px 0;
         }
 
@@ -540,22 +586,22 @@ HTML_TEMPLATE = """
 
         .results-count {
             font-size: 1.2em;
-            color: #333;
+            color: #1a202c;
             font-weight: 600;
         }
 
         .transaction-card {
             background: white;
-            border: 1px solid #e0e0e0;
+            border: 1px solid #e2e8f0;
             border-radius: 8px;
             padding: 20px;
-            margin-bottom: 15px;
-            transition: all 0.3s ease;
+            margin-bottom: 16px;
+            transition: all 0.2s ease;
         }
 
         .transaction-card:hover {
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            border-color: #cbd5e0;
         }
 
         .tx-header {
@@ -570,7 +616,7 @@ HTML_TEMPLATE = """
         .tx-hash {
             font-family: 'Courier New', monospace;
             font-size: 0.9em;
-            color: #667eea;
+            color: #4299e1;
             font-weight: 600;
             word-break: break-all;
             flex: 1;
@@ -596,7 +642,7 @@ HTML_TEMPLATE = """
 
         .detail-label {
             font-size: 0.8em;
-            color: #888;
+            color: #718096;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             margin-bottom: 5px;
@@ -605,7 +651,7 @@ HTML_TEMPLATE = """
 
         .detail-value {
             font-size: 0.95em;
-            color: #333;
+            color: #2d3748;
             font-family: 'Courier New', monospace;
             word-break: break-all;
         }
@@ -619,13 +665,13 @@ HTML_TEMPLATE = """
         }
 
         .status-confirmed {
-            background: #d4edda;
-            color: #155724;
+            background: #9ae6b4;
+            color: #22543d;
         }
 
         .status-pending {
-            background: #fff3cd;
-            color: #856404;
+            background: #fefcbf;
+            color: #744210;
         }
 
         .no-results {
@@ -658,10 +704,18 @@ HTML_TEMPLATE = """
         }
 
         .toggle-json {
-            background: #6c757d;
+            background: #718096;
             padding: 8px 16px;
             font-size: 0.85em;
             margin-top: 10px;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .toggle-json:hover {
+            background: #4a5568;
         }
 
         .section-header {
@@ -671,7 +725,7 @@ HTML_TEMPLATE = """
         }
 
         .section-header h3 {
-            color: #333;
+            color: #1a202c;
             font-size: 1.1em;
             margin: 0;
         }
@@ -741,14 +795,15 @@ HTML_TEMPLATE = """
         }
 
         .clickable-link {
-            color: #667eea;
+            color: #4299e1;
             cursor: pointer;
-            text-decoration: underline;
-            transition: color 0.3s ease;
+            text-decoration: none;
+            transition: color 0.2s ease;
         }
 
         .clickable-link:hover {
-            color: #5a6fd8;
+            color: #3182ce;
+            text-decoration: underline;
         }
 
         @media (max-width: 768px) {
@@ -779,25 +834,60 @@ HTML_TEMPLATE = """
                 gap: 5px;
             }
         }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                position: relative;
+                min-height: auto;
+            }
+
+            .main-content {
+                margin-left: 0;
+            }
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🔍 Address Viewer</h1>
-            <p>Enter an address to view all associated transactions</p>
-            <div class="nav-buttons">
-                <a href="/" class="nav-btn">🔍 Address Viewer</a>
-                <a href="/block" class="nav-btn">🧱 Block Viewer</a>
-                <a href="/transaction" class="nav-btn">🔗 Transaction Viewer</a>
-                <a href="/latest-blocks" class="nav-btn">📋 Latest Blocks</a>
-                <a href="/mempool" class="nav-btn">💾 Mempool</a>
-                <a href="/details" class="nav-btn">💰 Pricing Details</a>
-            </div>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h1>🔗 Blockchain Explorer</h1>
+            <p>Bitcoin & Sidechain Explorer</p>
+        </div>
+        <nav class="nav-menu">
+            <a href="/" class="nav-item active">
+                <span class="nav-item-icon">🏠</span> Home
+            </a>
+            <a href="/block" class="nav-item">
+                <span class="nav-item-icon">🧱</span> Block Viewer
+            </a>
+            <a href="/transaction" class="nav-item">
+                <span class="nav-item-icon">🔗</span> Transaction Viewer
+            </a>
+            <a href="/latest-blocks" class="nav-item">
+                <span class="nav-item-icon">📋</span> Latest Blocks
+            </a>
+            <a href="/coinbases" class="nav-item">
+                <span class="nav-item-icon">💰</span> Coinbases
+            </a>
+            <a href="/mempool" class="nav-item">
+                <span class="nav-item-icon">💾</span> Mempool
+            </a>
+            <a href="/details" class="nav-item">
+                <span class="nav-item-icon">📊</span> Pricing Details
+            </a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <div class="top-bar">
+            <h1 class="page-title">🔍 Address Viewer</h1>
         </div>
 
-        <div class="search-section">
-            <div class="input-group">
+        <div class="content-area">
+            <div class="card">
+                <div class="search-section">
+                    <div class="input-group">
                 <div class="input-wrapper">
                     <input 
                         type="text" 
@@ -819,8 +909,10 @@ HTML_TEMPLATE = """
             </div>
         </div>
 
-        <div class="content">
-            <div id="results"></div>
+                <div class="content">
+                    <div id="results"></div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1836,6 +1928,190 @@ def get_latest_blocks():
             'details': str(e)
         }), 500
 
+@app.route('/api/coinbases', methods=['GET'])
+def get_coinbases():
+    """
+    Simplified endpoint to fetch coinbase messages from the latest blocks
+    Uses only the /blocks endpoint (no individual block fetching)
+    Supports pagination with page and per_page parameters
+    """
+    try:
+        # Check for force refresh parameter
+        force_refresh = request.args.get('force_refresh', 'false').lower() == 'true'
+        
+        # Get pagination parameters
+        page = request.args.get('page', type=int, default=1)
+        per_page = request.args.get('per_page', type=int, default=20)
+        
+        # Validate pagination parameters
+        if page < 1:
+            page = 1
+        if per_page < 1 or per_page > 100:
+            per_page = 20
+        
+        # Cache key for latest blocks coinbases
+        cache_key = get_cache_key('coinbases', 'latest')
+        
+        # Try to get from cache first (unless force refresh is requested)
+        coinbases = None
+        if not force_refresh:
+            cached_data = get_from_cache(cache_key)
+            if cached_data and isinstance(cached_data, list):
+                print(f"✅ Cache hit for coinbases")
+                coinbases = cached_data
+        
+        # If not in cache, fetch and process latest blocks
+        if coinbases is None:
+            # Fetch latest blocks from /blocks endpoint
+            try:
+                response = requests.get(BLOCKS_API_BASE_URL, timeout=30)
+                response.raise_for_status()
+                blocks = response.json()
+                
+                if not isinstance(blocks, list):
+                    blocks = []
+                    
+                print(f"✅ Fetched {len(blocks)} latest blocks")
+            except Exception as e:
+                print(f"⚠️ Error fetching latest blocks: {e}")
+                blocks = []
+            
+            # Process each block to get coinbase messages
+            coinbases = []
+            for block in blocks:
+                block_hash = block.get('id') or block.get('hash')
+                block_height = block.get('height', 'N/A')
+                block_timestamp = block.get('timestamp', 'N/A')
+                
+                if not block_hash:
+                    continue
+                
+                # Fetch the first transaction (coinbase) from this block
+                # Check cache first for coinbase transaction
+                coinbase_cache_key = get_cache_key('coinbase', block_hash)
+                cached_coinbase = get_from_cache(coinbase_cache_key) if not force_refresh else None
+                
+                if cached_coinbase:
+                    coinbases.append(cached_coinbase)
+                else:
+                    try:
+                        tx_url = f"{BLOCK_API_BASE_URL}/{block_hash}/txs"
+                        tx_response = requests.get(tx_url, params={'start_index': 0, 'limit': 1}, timeout=10)
+                        
+                        if tx_response.status_code == 200:
+                            transactions = tx_response.json()
+                            
+                            if isinstance(transactions, list) and len(transactions) > 0:
+                                first_tx = transactions[0]
+                                
+                                # Extract coinbase message
+                                coinbase_raw = None
+                                coinbase_decoded = {"type": "none", "message": "N/A"}
+                                
+                                if 'vin' in first_tx and len(first_tx['vin']) > 0:
+                                    coinbase_input = first_tx['vin'][0]
+                                    if coinbase_input.get('is_coinbase', False) and 'scriptsig' in coinbase_input:
+                                        coinbase_raw = coinbase_input['scriptsig']
+                                        # Decode the coinbase message
+                                        coinbase_decoded = decode_bip300301_message(coinbase_raw)
+                                
+                                coinbase_data = {
+                                    'block_hash': block_hash,
+                                    'block_height': block_height,
+                                    'block_timestamp': block_timestamp,
+                                    'coinbase_raw': coinbase_raw,
+                                    'coinbase_decoded': coinbase_decoded
+                                }
+                                
+                                # Cache this coinbase data
+                                set_cache(coinbase_cache_key, coinbase_data, CACHE_TTL)
+                                coinbases.append(coinbase_data)
+                            else:
+                                coinbase_data = {
+                                    'block_hash': block_hash,
+                                    'block_height': block_height,
+                                    'block_timestamp': block_timestamp,
+                                    'coinbase_raw': None,
+                                    'coinbase_decoded': {"type": "error", "message": "No transactions found"}
+                                }
+                                coinbases.append(coinbase_data)
+                        else:
+                            coinbase_data = {
+                                'block_hash': block_hash,
+                                'block_height': block_height,
+                                'block_timestamp': block_timestamp,
+                                'coinbase_raw': None,
+                                'coinbase_decoded': {"type": "error", "message": f"HTTP {tx_response.status_code}"}
+                            }
+                            coinbases.append(coinbase_data)
+                    except Exception as e:
+                        print(f"⚠️ Error fetching coinbase for block {block_hash}: {e}")
+                        coinbase_data = {
+                            'block_hash': block_hash,
+                            'block_height': block_height,
+                            'block_timestamp': block_timestamp,
+                            'coinbase_raw': None,
+                            'coinbase_decoded': {"type": "error", "message": f"Error: {str(e)}"}
+                        }
+                        coinbases.append(coinbase_data)
+            
+            # Cache the coinbases list
+            set_cache(cache_key, coinbases, CACHE_TTL)
+            print(f"💾 Cached coinbases list ({len(coinbases)} blocks)")
+        
+        # Apply pagination
+        total = len(coinbases)
+        start_idx = (page - 1) * per_page
+        end_idx = start_idx + per_page
+        paginated_coinbases = coinbases[start_idx:end_idx]
+        
+        # Prepare response
+        result = {
+            'coinbases': paginated_coinbases,
+            'pagination': {
+                'page': page,
+                'per_page': per_page,
+                'total': total,
+                'total_pages': (total + per_page - 1) // per_page if total > 0 else 0
+            }
+        }
+        
+        # Return the JSON data
+        return jsonify(result), 200
+        
+    except requests.exceptions.Timeout:
+        return jsonify({
+            'error': 'Request timeout',
+            'message': 'The external API took too long to respond'
+        }), 504
+        
+    except requests.exceptions.ConnectionError:
+        return jsonify({
+            'error': 'Connection error',
+            'message': 'Could not connect to the external API. Please check if the API is accessible.'
+        }), 503
+        
+    except requests.exceptions.HTTPError as e:
+        return jsonify({
+            'error': 'HTTP error',
+            'message': f'External API returned error: {e.response.status_code}',
+            'details': str(e)
+        }), e.response.status_code
+        
+    except requests.exceptions.RequestException as e:
+        return jsonify({
+            'error': 'Request failed',
+            'message': 'An error occurred while fetching data',
+            'details': str(e)
+        }), 500
+        
+    except Exception as e:
+        return jsonify({
+            'error': 'Internal server error',
+            'message': 'An unexpected error occurred',
+            'details': str(e)
+        }), 500
+
 @app.route('/api/cache/clear', methods=['POST'])
 def clear_cache():
     """Clear all cache entries"""
@@ -2017,6 +2293,12 @@ def mempool_viewer():
 def details_viewer():
     """Serve the details/pricing viewer HTML page"""
     with open('details.html', 'r') as f:
+        return f.read()
+
+@app.route('/coinbases')
+def coinbases_viewer():
+    """Serve the coinbases HTML page"""
+    with open('coinbases.html', 'r') as f:
         return f.read()
 
 @app.route('/health', methods=['GET'])
